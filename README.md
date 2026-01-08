@@ -1,3 +1,8 @@
 # WP Energy Predictor
 
-HA 2026 ready custom integration.
+Full integration including:
+
+-   Forecast sensors
+-   Options Flow
+-   Dashboard creation service
+-   ApexCharts auto-check
