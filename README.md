@@ -1,3 +1,3 @@
 # WP Energy Predictor
 
-Custom HA integration…
+HA 2026 ready custom integration.

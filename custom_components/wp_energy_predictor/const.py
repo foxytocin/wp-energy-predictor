@@ -1,3 +1,4 @@
+
 DOMAIN="wp_energy_predictor"
 CONF_SENSOR="source_sensor"
 CONF_START_YEAR="start_year"
