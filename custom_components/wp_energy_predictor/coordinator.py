@@ -3,7 +3,7 @@ import logging
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util.dt import now
-from homeassistant.components.recorder import get_instance
+from homeassistant.components.recorder.statistics import statistics_during_period
 
 from .const import UPDATE_INTERVAL, HEAT_LOAD_FACTORS
 
@@ -20,7 +20,6 @@ def month_range(dt):
 
 
 class WPDataCoordinator(DataUpdateCoordinator):
-
     def __init__(self, hass, source):
         super().__init__(
             hass=hass,
@@ -35,19 +34,17 @@ class WPDataCoordinator(DataUpdateCoordinator):
         dt = now()
         mstart, mend = month_range(dt)
 
-        # Correct HA 2026 DB-safe version
         def get_stats(start, end):
-            recorder = get_instance(self.hass)
-            return recorder.statistics_during_period(
+            return statistics_during_period(
+                hass=self.hass,
                 start_time=start,
                 end_time=end,
                 statistic_ids=[self.source],
                 period="day",
                 types=["change"],
-                units=None  # <- FIXED
+                units=None
             )
 
-        # EXECUTOR JOB
         real_stats = await self.hass.async_add_executor_job(get_stats, mstart, dt)
 
         real_val = 0.0
@@ -55,19 +52,17 @@ class WPDataCoordinator(DataUpdateCoordinator):
             real_val = float(real_stats[self.source][0]["change"])
 
         day = dt.day
-        avg = real_val / (day - 1) if day > 1 and real_val > 0 else 0.0
+        avg = real_val / (day - 1) if day > 1 and real_val > 0 else 0
 
         _, month_end = month_range(dt)
         remaining = month_end.day - (day - 1)
         forecast_current = real_val + avg * remaining
 
-        # Month forecast
         months = {}
         for m in range(1, 13):
             if m < dt.month:
                 prev_start, prev_end = month_range(dt.replace(month=m, day=1))
                 pst = await self.hass.async_add_executor_job(get_stats, prev_start, prev_end)
-
                 val = 0.0
                 if pst and self.source in pst:
                     val = float(pst[self.source][0]["change"])
@@ -79,7 +74,7 @@ class WPDataCoordinator(DataUpdateCoordinator):
             else:
                 fc_now = HEAT_LOAD_FACTORS[dt.month]
                 fc_t = HEAT_LOAD_FACTORS[m]
-                months[m] = (real_val * fc_t / fc_now) if fc_now > 0 else 0.0
+                months[m] = (real_val * fc_t / fc_now) if fc_now > 0 else 0
 
         return {
             "real": real_val,
