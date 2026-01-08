@@ -1,4 +1,3 @@
-
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers.entity_registry import async_get
@@ -7,7 +6,7 @@ from .const import DOMAIN, CONF_SENSOR
 class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry):
-        self.config_entry = config_entry
+        self.entry = config_entry
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
@@ -15,13 +14,14 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
 
         registry = async_get(self.hass)
         sensors = [
-            ent.entity_id for ent in registry.entities.values()
+            ent.entity_id
+            for ent in registry.entities.values()
             if ent.entity_id.startswith("sensor.")
         ]
 
-        current = self.config_entry.options.get(
+        current = self.entry.options.get(
             CONF_SENSOR,
-            self.config_entry.data.get(CONF_SENSOR)
+            self.entry.data.get(CONF_SENSOR)
         )
 
         schema = vol.Schema({
