@@ -1,0 +1,4 @@
+services.yamlcreate_dashboard:
+    name: Create WP Forecast Dashboard
+    description: Creates a YAML dashboard with the WP yearly forecast.
+    fields: {}
