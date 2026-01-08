@@ -1,10 +1,11 @@
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity_registry import async_get
 from .const import DOMAIN, CONF_SENSOR, CONF_START_YEAR, DEFAULT_START_YEAR
 
+
 class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for WP Energy Predictor."""
+    """Config flow for WP Energy Predictor."""
 
     async def async_step_user(self, user_input=None):
         if user_input is not None:
@@ -13,7 +14,7 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data=user_input
             )
 
-        registry = er.async_get(self.hass)
+        registry = async_get(self.hass)
 
         candidates = []
         for entity in registry.entities.values():
@@ -27,7 +28,7 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         pass
 
         if not candidates:
-            return self.async_abort(reason="no_sensors")
+            return self.async_abort(reason="no_sensors_found")
 
         schema = vol.Schema({
             vol.Required(CONF_SENSOR): vol.In(sorted(candidates)),
@@ -36,5 +37,5 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=schema
+            data_schema=schema,
         )
