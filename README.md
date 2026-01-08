@@ -1,0 +1,3 @@
+# WP Energy Predictor
+
+Custom HA integration…
