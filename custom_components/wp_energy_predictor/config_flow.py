@@ -29,3 +29,7 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_START_YEAR, default=DEFAULT_START_YEAR): int
         })
         return self.async_show_form(step_id="user", data_schema=schema)
+
+    @staticmethod
+    def async_get_options_flow(config_entry):
+        return WPEnergyPredictorOptionsFlow(config_entry)

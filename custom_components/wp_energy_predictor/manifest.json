@@ -1,13 +1,11 @@
-
 {
-  "domain": "wp_energy_predictor",
-  "name": "WP Energy Predictor",
-  "version": "1.0.3",
-  "documentation": "",
-  "requirements": [],
-  "codeowners": ["@foxytocin"],
-  "iot_class": "local_polling",
-  "config_flow": true,
-  "integration_type": "helper",
-  "platforms": ["sensor"]
+    "domain": "wp_energy_predictor",
+    "name": "WP Energy Predictor",
+    "version": "1.0.4",
+    "documentation": "",
+    "requirements": [],
+    "codeowners": ["@foxytocin"],
+    "config_flow": true,
+    "iot_class": "local_polling",
+    "platforms": ["sensor"]
 }
