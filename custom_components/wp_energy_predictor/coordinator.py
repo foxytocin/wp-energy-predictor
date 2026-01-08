@@ -35,16 +35,23 @@ class WPDataCoordinator(DataUpdateCoordinator):
         mstart, mend = month_range(dt)
 
         def get_stats(start, end):
-            return statistics_during_period(
+            stats = statistics_during_period(
                 hass=self.hass,
                 start_time=start,
                 end_time=end,
                 statistic_ids=[self.source],
-                period="day",
                 types=["change"],
                 units=None
             )
 
+            if not stats or self.source not in stats:
+                return 0.0
+
+            try:
+                return float(stats[self.source][0]["change"])
+            except:
+                return 0.0
+            
         real_stats = await self.hass.async_add_executor_job(get_stats, mstart, dt)
 
         real_val = 0.0
