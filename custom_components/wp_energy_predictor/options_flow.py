@@ -2,33 +2,30 @@
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers.entity_registry import async_get
-from .const import CONF_SENSOR, CONF_START_YEAR, DEFAULT_START_YEAR
+from .const import DOMAIN, CONF_SENSOR
 
 class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
-    def __init__(self, entry):
-        self.entry = entry
+
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
-        if user_input:
+        if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
         registry = async_get(self.hass)
-        sensors=[]
-        for ent in registry.entities.values():
-            if ent.entity_id.startswith("sensor."):
-                st=self.hass.states.get(ent.entity_id)
-                if st:
-                    try:
-                        float(st.state)
-                        sensors.append(ent.entity_id)
-                    except:
-                        pass
+        sensors = [
+            ent.entity_id for ent in registry.entities.values()
+            if ent.entity_id.startswith("sensor.")
+        ]
+
+        current = self.config_entry.options.get(
+            CONF_SENSOR,
+            self.config_entry.data.get(CONF_SENSOR)
+        )
 
         schema = vol.Schema({
-            vol.Required(CONF_SENSOR, default=self.entry.options.get(CONF_SENSOR, self.entry.data.get(CONF_SENSOR))):
-                vol.In(sorted(sensors)),
-            vol.Required(CONF_START_YEAR, default=self.entry.options.get(CONF_START_YEAR, DEFAULT_START_YEAR)):
-                int
+            vol.Required(CONF_SENSOR, default=current): vol.In(sorted(sensors))
         })
 
         return self.async_show_form(step_id="init", data_schema=schema)
