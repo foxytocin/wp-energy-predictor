@@ -50,9 +50,10 @@ class WPDataCoordinator(DataUpdateCoordinator):
                 hass=self.hass,
                 start_time=start,
                 end_time=end,
+                period="hour",
                 statistic_ids=[self.source],
                 types=["change"],
-                units=None,
+                units=None
             )
 
             if not stats or self.source not in stats:
