@@ -16,7 +16,7 @@ def get_month_range(dt):
 def get_month_stats(hass, ent, year, month):
     dt = datetime(year, month, 1)
     start, end = get_month_range(dt)
-    stats = statistics_during_period(hass, start, end, [ent], "kWh", ["change"])
+    stats = statistics_during_period(hass, start, end, statistic_ids=[ent],types=["change"],units=True)
     if stats and ent in stats:
         return float(stats[ent][0]["change"])
     return 0.0
@@ -42,7 +42,7 @@ class DailyAverageSensor(SensorEntity):
     @property
     def native_value(self):
         t=now(); start,_=get_month_range(t)
-        stats=statistics_during_period(self.hass,start,t,[self.s],"kWh", ["change"])
+        stats=statistics_during_period(self.hass,start,t,statistic_ids=[self.s],types=["change"],units=True)
         if not stats or self.s not in stats: return None
         real=float(stats[self.s][0]["change"])
         return round(real/(t.day-1),2) if t.day>1 else None
@@ -56,7 +56,7 @@ class CurrentRealMonthSensor(SensorEntity):
     @property
     def native_value(self):
         t=now(); start,_=get_month_range(t)
-        stats=statistics_during_period(self.hass,start,t,[self.s],"kWh", ["change"])
+        stats=statistics_during_period(self.hass,start,t,statistic_ids=[self.s],types=["change"],units=True)
         if stats and self.s in stats: return float(stats[self.s][0]["change"])
         return None
 
