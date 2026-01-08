@@ -10,7 +10,8 @@ from .const import UPDATE_INTERVAL, HEAT_LOAD_FACTORS
 LOGGER = logging.getLogger(__name__)
 
 
-def month_range(dt):
+def month_range(dt: datetime):
+    """Return first and last second of month."""
     start = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     if dt.month == 12:
         end = dt.replace(year=dt.year + 1, month=1, day=1) - timedelta(seconds=1)
@@ -20,6 +21,8 @@ def month_range(dt):
 
 
 class WPDataCoordinator(DataUpdateCoordinator):
+    """Coordinator für WP Energy Predictor"""
+
     def __init__(self, hass, source):
         super().__init__(
             hass=hass,
@@ -27,13 +30,21 @@ class WPDataCoordinator(DataUpdateCoordinator):
             name="wp_energy_predictor",
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
         )
+
         self.hass = hass
         self.source = source
 
     async def _async_update_data(self):
-        dt = now()
-        mstart, mend = month_range(dt)
+        """Berechnet alle Real-, Forecast- und Monatswerte."""
 
+        dt = now()
+
+        #
+        # ---- REALER VERBRAUCH DES AKTUELLEN MONATS ----
+        #
+        month_start, _ = month_range(dt)
+
+        # Wichtig: end_time = jetzt, NICHT Monatsende
         def get_stats(start, end):
             stats = statistics_during_period(
                 hass=self.hass,
@@ -41,7 +52,7 @@ class WPDataCoordinator(DataUpdateCoordinator):
                 end_time=end,
                 statistic_ids=[self.source],
                 types=["change"],
-                units=None
+                units=None,
             )
 
             if not stats or self.source not in stats:
@@ -51,42 +62,67 @@ class WPDataCoordinator(DataUpdateCoordinator):
                 return float(stats[self.source][0]["change"])
             except:
                 return 0.0
-            
-        real_stats = await self.hass.async_add_executor_job(get_stats, mstart, dt)
 
-        real_val = 0.0
-        if real_stats and self.source in real_stats:
-            real_val = float(real_stats[self.source][0]["change"])
+        # Realer Verbrauch 1. → jetzt
+        real_current = await self.hass.async_add_executor_job(
+            get_stats, month_start, dt
+        )
 
+        #
+        # ---- DAILY AVERAGE ----
+        #
         day = dt.day
-        avg = real_val / (day - 1) if day > 1 and real_val > 0 else 0
+        avg = real_current / (day - 1) if day > 1 and real_current > 0 else 0.0
 
+        #
+        # ---- FORECAST FÜR AKTUELLEN MONAT ----
+        #
         _, month_end = month_range(dt)
-        remaining = month_end.day - (day - 1)
-        forecast_current = real_val + avg * remaining
+        remaining_days = month_end.day - (day - 1)
+        forecast_current = real_current + avg * remaining_days
 
+        #
+        # ---- MONATSWERTE (VERGANGENHEIT, GEGENWART, ZUKUNFT) ----
+        #
         months = {}
+
         for m in range(1, 13):
+            # Vergangene Monate → echte Statistik
             if m < dt.month:
-                prev_start, prev_end = month_range(dt.replace(month=m, day=1))
-                pst = await self.hass.async_add_executor_job(get_stats, prev_start, prev_end)
-                val = 0.0
-                if pst and self.source in pst:
-                    val = float(pst[self.source][0]["change"])
+                past_dt = dt.replace(month=m, day=1)
+                start, end = month_range(past_dt)
+
+                val = await self.hass.async_add_executor_job(
+                    get_stats, start, end
+                )
                 months[m] = val
 
+            # Aktueller Monat → Forecast
             elif m == dt.month:
                 months[m] = forecast_current
 
+            # Zukunft → Skaliert nach Heizlastfaktor
             else:
-                fc_now = HEAT_LOAD_FACTORS[dt.month]
-                fc_t = HEAT_LOAD_FACTORS[m]
-                months[m] = (real_val * fc_t / fc_now) if fc_now > 0 else 0
+                fc_now = HEAT_LOAD_FACTORS.get(dt.month, 1)
+                fc_target = HEAT_LOAD_FACTORS.get(m, 1)
 
+                if fc_now > 0:
+                    months[m] = real_current * fc_target / fc_now
+                else:
+                    months[m] = 0.0
+
+        #
+        # ---- JAHRESGESAMT ----
+        #
+        year_total = sum(months.values())
+
+        #
+        # ---- KOORDINATOR-DATEN ----
+        #
         return {
-            "real": real_val,
+            "real": real_current,
             "avg": avg,
             "forecast_current": forecast_current,
             "months": months,
-            "year": sum(months.values()),
+            "year": year_total,
         }
