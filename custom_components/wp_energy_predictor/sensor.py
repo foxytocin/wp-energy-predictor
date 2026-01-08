@@ -1,15 +1,28 @@
-from datetime import datetime
-from homeassistant.helpers.entity import Entity
+from datetime import datetime, timedelta
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.recorder.statistics import statistics_during_period
-from homeassistant.util.dt import now, start_of_month, end_of_month
+from homeassistant.util.dt import now
 
-from .const import HEAT_LOAD_FACTORS, CONF_SENSOR, DOMAIN
+from .const import HEAT_LOAD_FACTORS, CONF_SENSOR
+
+
+def get_month_range(dt: datetime):
+    """Return (start_of_month, end_of_month) for a datetime."""
+    start = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # compute next month
+    if dt.month == 12:
+        next_month = dt.replace(year=dt.year + 1, month=1, day=1)
+    else:
+        next_month = dt.replace(month=dt.month + 1, day=1)
+
+    end = next_month - timedelta(seconds=1)
+    return start, end
 
 
 def get_month_stats(hass, entity_id, year, month):
-    start = datetime(year, month, 1)
-    end = end_of_month(start)
+    dt = datetime(year, month, 1)
+    start, end = get_month_range(dt)
 
     stats = statistics_during_period(
         hass,
@@ -41,8 +54,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class DailyAverageSensor(SensorEntity):
-    _attr_name = "WP Daily Average"
-    _attr_unique_id = "wp_daily_average"
+    _attr_name = "FMS WP Daily Average"
+    _attr_unique_id = "fms_wp_daily_average"
     _attr_native_unit_of_measurement = "kWh"
 
     def __init__(self, hass, source):
@@ -52,13 +65,12 @@ class DailyAverageSensor(SensorEntity):
     @property
     def native_value(self):
         today = now()
+        month_start, _ = get_month_range(today)
+
         stats = statistics_during_period(
-            self.hass,
-            start_of_month(today),
-            today,
-            [self.source],
-            "change"
+            self.hass, month_start, today, [self.source], "change"
         )
+
         if not stats or self.source not in stats:
             return 0.0
 
@@ -72,8 +84,8 @@ class DailyAverageSensor(SensorEntity):
 
 
 class CurrentRealMonthSensor(SensorEntity):
-    _attr_name = "WP Current Month Real"
-    _attr_unique_id = "wp_current_real"
+    _attr_name = "FMS WP Current Month Real"
+    _attr_unique_id = "fms_wp_current_real"
     _attr_native_unit_of_measurement = "kWh"
 
     def __init__(self, hass, source):
@@ -83,21 +95,21 @@ class CurrentRealMonthSensor(SensorEntity):
     @property
     def native_value(self):
         today = now()
+        month_start, _ = get_month_range(today)
+
         stats = statistics_during_period(
-            self.hass,
-            start_of_month(today),
-            today,
-            [self.source],
-            "change"
+            self.hass, month_start, today, [self.source], "change"
         )
+
         if stats and self.source in stats:
             return float(stats[self.source][0]["change"])
+
         return 0.0
 
 
 class CurrentMonthForecastSensor(SensorEntity):
-    _attr_name = "WP Current Month Forecast"
-    _attr_unique_id = "wp_current_forecast"
+    _attr_name = "FMS WP Current Month Forecast"
+    _attr_unique_id = "fms_wp_current_forecast"
     _attr_native_unit_of_measurement = "kWh"
 
     def __init__(self, hass, source):
@@ -108,10 +120,11 @@ class CurrentMonthForecastSensor(SensorEntity):
     def native_value(self):
         today = now()
 
-        real = float(self.hass.states.get("sensor.wp_current_real").state)
-        avg = float(self.hass.states.get("sensor.wp_daily_average").state)
+        real = float(self.hass.states.get("sensor.fms_wp_current_real").state)
+        avg = float(self.hass.states.get("sensor.fms_wp_daily_average").state)
 
-        total_days = end_of_month(today).day
+        _, month_end = get_month_range(today)
+        total_days = month_end.day
         remaining = total_days - (today.day - 1)
 
         return round(real + avg * remaining, 2)
@@ -124,26 +137,26 @@ class MonthSensor(SensorEntity):
         self.hass = hass
         self.source = source
         self.month = month
-        self._attr_name = f"WP Month {month}"
-        self._attr_unique_id = f"wp_month_{month}"
+        self._attr_name = f"FMS WP Month {month}"
+        self._attr_unique_id = f"fms_wp_month_{month}"
 
     @property
     def native_value(self):
         today = now()
         current_month = today.month
 
-        real_current = float(self.hass.states["sensor.wp_current_real"].state)
-        forecast_current = float(self.hass.states["sensor.wp_current_forecast"].state)
+        real_current = float(self.hass.states["sensor.fms_wp_current_real"].state)
+        forecast_current = float(self.hass.states["sensor.fms_wp_current_forecast"].state)
 
-        # Vergangener Monat
+        # Past month
         if self.month < current_month:
             return get_month_stats(self.hass, self.source, today.year, self.month)
 
-        # Aktueller Monat
+        # Current month
         if self.month == current_month:
             return forecast_current
 
-        # Zukunftsmonat
+        # Future months
         fc_now = HEAT_LOAD_FACTORS[current_month]
         fc_target = HEAT_LOAD_FACTORS[self.month]
 
@@ -154,15 +167,15 @@ class MonthSensor(SensorEntity):
 
 
 class YearForecastSensor(SensorEntity):
-    _attr_name = "WP Year Forecast"
-    _attr_unique_id = "wp_year_forecast"
+    _attr_name = "FMS WP Year Forecast"
+    _attr_unique_id = "fms_wp_year_forecast"
     _attr_native_unit_of_measurement = "kWh"
 
     @property
     def native_value(self):
         total = 0.0
         for m in range(1, 13):
-            ent = self.hass.states.get(f"sensor.wp_month_{m}")
+            ent = self.hass.states.get(f"sensor.fms_wp_month_{m}")
             if ent:
                 total += float(ent.state)
         return round(total, 2)
