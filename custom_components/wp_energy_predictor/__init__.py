@@ -9,5 +9,5 @@ async def async_setup_entry(hass, entry):
 async def async_unload_entry(hass, entry):
     return True
 
-async def async_get_options_flow(config_entry):
+def async_get_options_flow(config_entry):
     return WPEnergyPredictorOptionsFlow(config_entry)
