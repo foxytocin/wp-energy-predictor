@@ -1,8 +1,8 @@
 {
-  "name": "WP Energy Predictor",
-  "country": "DE",
-  "domains": ["sensor"],
-  "homeassistant": "2024.1.0",
-  "render_readme": true,
-  "content_in_root": false
+    "name": "WP Energy Predictor",
+    "country": "DE",
+    "domains": ["sensor"],
+    "homeassistant": "2026.1.0",
+    "render_readme": true,
+    "content_in_root": false
 }
