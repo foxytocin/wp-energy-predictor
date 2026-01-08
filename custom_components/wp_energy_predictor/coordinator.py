@@ -1,9 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import logging
-
+from homeassistant.components.recorder import get_instance
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util.dt import now
-from homeassistant.components.recorder.statistics import statistics_during_period
 
 from .const import UPDATE_INTERVAL, HEAT_LOAD_FACTORS
 
@@ -36,12 +35,14 @@ class WPDataCoordinator(DataUpdateCoordinator):
 
         # statistics wrapper
         def get_stats(start, end):
-            return statistics_during_period(
-                self.hass, start, end,
-                period="day",
+            rec = get_instance(self.hass)
+            return rec.statistics_during_period(
+                start_time=start,
+                end_time=end,
                 statistic_ids=[self.source],
+                period="day",
                 types=["change"],
-                units=True
+                units=None
             )
 
         # current month real data
