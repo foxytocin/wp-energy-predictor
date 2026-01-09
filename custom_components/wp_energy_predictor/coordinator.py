@@ -10,7 +10,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def month_range(year, month):
-    """Return (start, end) datetimes for one month."""
     start = datetime(year, month, 1)
     if month == 12:
         end = datetime(year + 1, 1, 1)
@@ -20,34 +19,31 @@ def month_range(year, month):
 
 
 class WPDataCoordinator(DataUpdateCoordinator):
-    """Coordinator that calculates monthly statistics for the heat pump."""
+    """Coordinator calculating WP energy stats."""
 
     def __init__(self, hass, source_sensor):
         super().__init__(
-            hass,
-            _LOGGER,
-            "wp_energy_predictor",
-            timedelta(seconds=UPDATE_INTERVAL),
+            hass=hass,
+            logger=_LOGGER,
+            name="wp_energy_predictor",
+            update_interval=timedelta(seconds=UPDATE_INTERVAL),
         )
         self.hass = hass
         self.source = source_sensor
 
     async def _async_update_data(self):
-        """Retrieve real consumption values from recorder statistics."""
-
+        """Fetch updated WP statistics."""
         year = now().year
 
-        # Function executed in executor to avoid blocking DB calls
         def get_change(start, end):
-            """Return total consumption change between start and end."""
             stats = statistics_during_period(
-                self.hass,
-                start,
-                end,
-                "day",               # HA expects: "5minute", "hour", "day"
-                [self.source],
-                ["change"],
-                None,
+                hass=self.hass,
+                start_time=start,
+                end_time=end,
+                period="day",
+                statistic_ids=[self.source],
+                types=["change"],
+                units=None,
             )
             if stats and self.source in stats:
                 return float(stats[self.source][0]["change"])
@@ -55,26 +51,19 @@ class WPDataCoordinator(DataUpdateCoordinator):
 
         results = {}
 
-        # Fill historical months (Jan … Dec)
+        # Historical months
         for month in range(1, 13):
             start, end = month_range(year, month)
             value = await self.hass.async_add_executor_job(get_change, start, end)
             results[f"month_{month}"] = value
 
-        # ------------------------------------
-        # Current month real consumption
-        # ------------------------------------
+        # Current month
         today = now()
         mstart, _ = month_range(today.year, today.month)
-
-        real_current = await self.hass.async_add_executor_job(
-            get_change, mstart, today
-        )
+        real_current = await self.hass.async_add_executor_job(get_change, mstart, today)
         results["current_real"] = real_current
 
-        # ------------------------------------
         # Daily average
-        # ------------------------------------
         if today.day > 1:
             results["daily_avg"] = round(real_current / (today.day - 1), 3)
         else:
