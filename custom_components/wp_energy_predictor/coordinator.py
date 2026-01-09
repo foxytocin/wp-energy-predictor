@@ -1,70 +1,85 @@
-import logging
 from datetime import datetime, timedelta
+import logging
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.components.recorder.statistics import statistics_during_period
-from homeassistant.util.dt import now
+from homeassistant.components.recorder import get_instance
 
-_LOGGER = logging.getLogger(__name__)
-UPDATE_INTERVAL = 300   # 5 minutes
+UPDATE_INTERVAL = 300  # 5 Minuten
 
 
-def month_range(year, month):
-    start = datetime(year, month, 1)
-    if month == 12:
-        end = datetime(year + 1, 1, 1)
+def month_range(dt):
+    start = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if dt.month == 12:
+        end = dt.replace(year=dt.year + 1, month=1, day=1)
     else:
-        end = datetime(year, month + 1, 1)
+        end = dt.replace(month=dt.month + 1, day=1)
     return start, end
 
 
 class WPDataCoordinator(DataUpdateCoordinator):
-    """Coordinator calculating monthly statistics for heat pump."""
+    def __init__(self, hass, source_entity):
+        self.hass = hass
+        self.source = source_entity
 
-    def __init__(self, hass, source):
         super().__init__(
-            hass=hass,
-            logger=_LOGGER,
+            hass,
+            logging.getLogger(__name__),
             name="wp_energy_predictor",
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
         )
-        self.hass = hass
-        self.source = source
 
     async def _async_update_data(self):
-        """Load all month statistics + forecast."""
-        year = now().year
-        today = now()
+        """Fetch statistics for all months + daily average."""
 
-        def read_stats(start, end):
+        now = datetime.now()
+        rec = get_instance(self.hass)
+
+        def get_stats(start, end):
+            """Runs inside executor → safe for DB access."""
+
             stats = statistics_during_period(
                 hass=self.hass,
                 start_time=start,
                 end_time=end,
-                period="day",
                 statistic_ids=[self.source],
+                period="day",
                 types=["change"],
-                units=None,
+                units={},  # MUST be dict, NOT bool!
             )
+
             if stats and self.source in stats:
-                return float(stats[self.source][0]["change"])
+                try:
+                    return float(stats[self.source][0]["change"])
+                except Exception:
+                    return 0.0
+
             return 0.0
 
+        # Monatliche Werte
         months = {}
+        for m in range(1, 13):
+            mstart = now.replace(month=m, day=1, hour=0, minute=0, second=0, microsecond=0)
 
-        # Read all 12 months
-        for m in range(1, 12 + 1):
-            mstart, mend = month_range(year, m)
-            value = await self.hass.async_add_executor_job(read_stats, mstart, mend)
-            months[m] = value
+            # Monatsende bestimmen
+            if m == 12:
+                mend = now.replace(year=now.year + 1, month=1, day=1)
+            else:
+                mend = now.replace(month=m + 1, day=1)
 
-        # Current month real energy so far
-        mstart, _ = month_range(today.year, today.month)
-        current_real = await self.hass.async_add_executor_job(read_stats, mstart, today)
+            # Heute nur bis jetzt berechnen
+            if m == now.month:
+                mend = now
 
-        # Daily average
-        if today.day > 1:
-            daily_avg = round(current_real / (today.day - 1), 3)
+            real_value = await self.hass.async_add_executor_job(get_stats, mstart, mend)
+            months[m] = real_value
+
+        # Current real
+        current_real = months[now.month]
+
+        # Daily average korrekt berechnen
+        if now.day > 1:
+            daily_avg = round(current_real / (now.day - 1), 3)
         else:
             daily_avg = 0.0
 
