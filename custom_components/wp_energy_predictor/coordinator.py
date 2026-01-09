@@ -5,8 +5,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.components.recorder.statistics import statistics_during_period
 from homeassistant.util.dt import now
 
-UPDATE_INTERVAL = 300  # 5 minutes
 _LOGGER = logging.getLogger(__name__)
+UPDATE_INTERVAL = 300   # 5 minutes
 
 
 def month_range(year, month):
@@ -19,9 +19,9 @@ def month_range(year, month):
 
 
 class WPDataCoordinator(DataUpdateCoordinator):
-    """Coordinator calculating WP energy stats."""
+    """Coordinator calculating monthly statistics for heat pump."""
 
-    def __init__(self, hass, source_sensor):
+    def __init__(self, hass, source):
         super().__init__(
             hass=hass,
             logger=_LOGGER,
@@ -29,13 +29,14 @@ class WPDataCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
         )
         self.hass = hass
-        self.source = source_sensor
+        self.source = source
 
     async def _async_update_data(self):
-        """Fetch updated WP statistics."""
+        """Load all month statistics + forecast."""
         year = now().year
+        today = now()
 
-        def get_change(start, end):
+        def read_stats(start, end):
             stats = statistics_during_period(
                 hass=self.hass,
                 start_time=start,
@@ -49,24 +50,26 @@ class WPDataCoordinator(DataUpdateCoordinator):
                 return float(stats[self.source][0]["change"])
             return 0.0
 
-        results = {}
+        months = {}
 
-        # Historical months
-        for month in range(1, 13):
-            start, end = month_range(year, month)
-            value = await self.hass.async_add_executor_job(get_change, start, end)
-            results[f"month_{month}"] = value
+        # Read all 12 months
+        for m in range(1, 12 + 1):
+            mstart, mend = month_range(year, m)
+            value = await self.hass.async_add_executor_job(read_stats, mstart, mend)
+            months[m] = value
 
-        # Current month
-        today = now()
+        # Current month real energy so far
         mstart, _ = month_range(today.year, today.month)
-        real_current = await self.hass.async_add_executor_job(get_change, mstart, today)
-        results["current_real"] = real_current
+        current_real = await self.hass.async_add_executor_job(read_stats, mstart, today)
 
         # Daily average
         if today.day > 1:
-            results["daily_avg"] = round(real_current / (today.day - 1), 3)
+            daily_avg = round(current_real / (today.day - 1), 3)
         else:
-            results["daily_avg"] = 0.0
+            daily_avg = 0.0
 
-        return results
+        return {
+            "months": months,
+            "current_real": current_real,
+            "daily_avg": daily_avg,
+        }
