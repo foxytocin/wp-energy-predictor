@@ -1,129 +1,67 @@
 from datetime import datetime, timedelta
-import logging
-
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.util.dt import now
 from homeassistant.components.recorder.statistics import statistics_during_period
+from homeassistant.components.recorder import get_instance as recorder_get
+from homeassistant.util.dt import now
 
-from .const import UPDATE_INTERVAL, HEAT_LOAD_FACTORS
-
-LOGGER = logging.getLogger(__name__)
+UPDATE_INTERVAL = 300  # 5 min
 
 
-def month_range(dt: datetime):
-    """Return first and last second of month."""
-    start = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if dt.month == 12:
-        end = dt.replace(year=dt.year + 1, month=1, day=1) - timedelta(seconds=1)
+def month_range(year, month):
+    start = datetime(year, month, 1)
+    if month == 12:
+        end = datetime(year + 1, 1, 1)
     else:
-        end = dt.replace(month=dt.month + 1, day=1) - timedelta(seconds=1)
+        end = datetime(year, month + 1, 1)
     return start, end
 
 
 class WPDataCoordinator(DataUpdateCoordinator):
-    """Coordinator für WP Energy Predictor"""
-
-    def __init__(self, hass, source):
+    def __init__(self, hass, source_sensor):
         super().__init__(
-            hass=hass,
-            logger=LOGGER,
+            hass,
             name="wp_energy_predictor",
-            update_interval=timedelta(seconds=UPDATE_INTERVAL),
+            update_interval=timedelta(seconds=UPDATE_INTERVAL)
         )
-
         self.hass = hass
-        self.source = source
+        self.source = source_sensor
 
     async def _async_update_data(self):
-        """Berechnet alle Real-, Forecast- und Monatswerte."""
+        year = now().year
 
-        dt = now()
-
-        #
-        # ---- REALER VERBRAUCH DES AKTUELLEN MONATS ----
-        #
-        month_start, _ = month_range(dt)
-
-        # Wichtig: end_time = jetzt, NICHT Monatsende
-        def get_stats(start, end):
+        def get_change(start, end):
+            """Runs inside executor → must NOT block event loop"""
             stats = statistics_during_period(
-                hass=self.hass,
-                start_time=start,
-                end_time=end,
-                period="hour",
-                statistic_ids=[self.source],
-                types=["change"],
-                units=None
+                self.hass,
+                start,
+                end,
+                "day",
+                [self.source],
+                ["change"],
+                None
             )
-
-            if not stats or self.source not in stats:
-                return 0.0
-
-            try:
+            if stats and self.source in stats:
                 return float(stats[self.source][0]["change"])
-            except:
-                return 0.0
+            return 0.0
 
-        # Realer Verbrauch 1. → jetzt
-        real_current = await self.hass.async_add_executor_job(
-            get_stats, month_start, dt
-        )
+        results = {}
 
-        #
-        # ---- DAILY AVERAGE ----
-        #
-        day = dt.day
-        avg = real_current / (day - 1) if day > 1 and real_current > 0 else 0.0
+        # monthly real values (including historical months)
+        for month in range(1, 13):
+            start, end = month_range(year, month)
+            value = await self.hass.async_add_executor_job(get_change, start, end)
+            results[f"month_{month}"] = value
 
-        #
-        # ---- FORECAST FÜR AKTUELLEN MONAT ----
-        #
-        _, month_end = month_range(dt)
-        remaining_days = month_end.day - (day - 1)
-        forecast_current = real_current + avg * remaining_days
+        # current month real
+        today = now()
+        mstart, mend = month_range(today.year, today.month)
+        real_current = await self.hass.async_add_executor_job(get_change, mstart, today)
+        results["current_real"] = real_current
 
-        #
-        # ---- MONATSWERTE (VERGANGENHEIT, GEGENWART, ZUKUNFT) ----
-        #
-        months = {}
+        # daily avg
+        if today.day > 1:
+            results["daily_avg"] = round(real_current / (today.day - 1), 3)
+        else:
+            results["daily_avg"] = 0.0
 
-        for m in range(1, 13):
-            # Vergangene Monate → echte Statistik
-            if m < dt.month:
-                past_dt = dt.replace(month=m, day=1)
-                start, end = month_range(past_dt)
-
-                val = await self.hass.async_add_executor_job(
-                    get_stats, start, end
-                )
-                months[m] = val
-
-            # Aktueller Monat → Forecast
-            elif m == dt.month:
-                months[m] = forecast_current
-
-            # Zukunft → Skaliert nach Heizlastfaktor
-            else:
-                fc_now = HEAT_LOAD_FACTORS.get(dt.month, 1)
-                fc_target = HEAT_LOAD_FACTORS.get(m, 1)
-
-                if fc_now > 0:
-                    months[m] = real_current * fc_target / fc_now
-                else:
-                    months[m] = 0.0
-
-        #
-        # ---- JAHRESGESAMT ----
-        #
-        year_total = sum(months.values())
-
-        #
-        # ---- KOORDINATOR-DATEN ----
-        #
-        return {
-            "real": real_current,
-            "avg": avg,
-            "forecast_current": forecast_current,
-            "months": months,
-            "year": year_total,
-        }
+        return results
