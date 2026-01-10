@@ -1,53 +1,89 @@
-
 from homeassistant.components.sensor import SensorEntity
-from .coordinator import WPDataCoordinator
+from homeassistant.core import HomeAssistant
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    src = entry.options.get("source_sensor", entry.data["source_sensor"])
-    coord=WPDataCoordinator(hass,src)
-    await coord.async_config_entry_first_refresh()
+from .const import DOMAIN, CONF_SENSOR
+from .coordinator import WPEnergyPredictorCoordinator
 
-    entities=[]
-    entities.append(WPSimpleSensor(coord,"FMS WP Current Month Real","real","kWh"))
-    entities.append(WPSimpleSensor(coord,"FMS WP Daily Average","avg","kWh"))
-    entities.append(WPSimpleSensor(coord,"FMS WP Current Month Forecast","forecast_current","kWh"))
-    entities.append(WPSimpleSensor(coord,"FMS WP Year Forecast","year","kWh"))
 
-    for m in range(1,13):
-        entities.append(WPMonthSensor(coord,m))
+async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
+    sensor_id = entry.data[CONF_SENSOR]
+    coordinator = WPEnergyPredictorCoordinator(hass, sensor_id)
+    await coordinator.async_config_entry_first_refresh()
+
+    entities = [
+        CurrentMonthRealSensor(coordinator),
+        DailyAverageSensor(coordinator),
+        CurrentMonthForecastSensor(coordinator),
+        YearForecastSensor(coordinator),
+    ]
+
+    for m in range(1, 13):
+        entities.append(MonthSensor(coordinator, m))
 
     async_add_entities(entities)
 
-class WPSimpleSensor(SensorEntity):
 
-    def __init__(self,coord,name,key,unit):
-        self._attr_name=name
-        self._attr_unique_id=name.replace(" ","_").lower()
-        self.coord=coord
-        self.key=key
-        self._attr_native_unit_of_measurement=unit
+class BaseSensor(SensorEntity):
+    _attr_native_unit_of_measurement = "kWh"
+
+    def __init__(self, coordinator):
+        self.coordinator = coordinator
 
     @property
-    def native_value(self):
-        return self.coord.data.get(self.key)
+    def should_poll(self):
+        return False
 
     @property
     def available(self):
-        return self.coord.last_update_success
+        return self.coordinator.last_update_success
 
-class WPMonthSensor(SensorEntity):
+    async def async_update(self):
+        await self.coordinator.async_request_refresh()
 
-    def __init__(self,coord,month):
-        self.coord=coord
-        self.month=month
-        self._attr_name=f"FMS WP Month {month}"
-        self._attr_unique_id=f"fms_wp_month_{month}"
-        self._attr_native_unit_of_measurement="kWh"
+
+class CurrentMonthRealSensor(BaseSensor):
+    _attr_name = "FMS WP Current Month Real"
+    _attr_unique_id = "fms_wp_current_month_real"
 
     @property
     def native_value(self):
-        return self.coord.data["months"][self.month]
+        return round(self.coordinator.data["current_real"], 2)
+
+
+class DailyAverageSensor(BaseSensor):
+    _attr_name = "FMS WP Daily Average"
+    _attr_unique_id = "fms_wp_daily_average"
 
     @property
-    def available(self):
-        return self.coord.last_update_success
+    def native_value(self):
+        return round(self.coordinator.data["daily_avg"], 3)
+
+
+class CurrentMonthForecastSensor(BaseSensor):
+    _attr_name = "FMS WP Current Month Forecast"
+    _attr_unique_id = "fms_wp_current_month_forecast"
+
+    @property
+    def native_value(self):
+        return round(self.coordinator.data["forecast_current"], 2)
+
+
+class YearForecastSensor(BaseSensor):
+    _attr_name = "FMS WP Year Forecast"
+    _attr_unique_id = "fms_wp_year_forecast"
+
+    @property
+    def native_value(self):
+        return round(self.coordinator.data["year_forecast"], 2)
+
+
+class MonthSensor(BaseSensor):
+    def __init__(self, coordinator, month):
+        super().__init__(coordinator)
+        self.month = month
+        self._attr_name = f"FMS WP Month {month}"
+        self._attr_unique_id = f"fms_wp_month_{month}"
+
+    @property
+    def native_value(self):
+        return round(self.coordinator.data["months"][self.month], 2)

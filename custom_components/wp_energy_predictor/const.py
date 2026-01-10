@@ -1,5 +1,17 @@
+DOMAIN = "wp_energy_predictor"
+CONF_SENSOR = "sensor"
 
-DOMAIN="wp_energy_predictor"
-CONF_SENSOR="source_sensor"
-UPDATE_INTERVAL=300
-HEAT_LOAD_FACTORS={1:1.0,2:0.85,3:0.65,4:0.4,5:0.2,6:0.05,7:0.0,8:0.0,9:0.1,10:0.35,11:0.7,12:0.95}
+HEAT_LOAD_FACTORS = {
+    1: 1.00,
+    2: 0.93,
+    3: 0.78,
+    4: 0.55,
+    5: 0.30,
+    6: 0.12,
+    7: 0.10,
+    8: 0.12,
+    9: 0.35,
+    10: 0.65,
+    11: 0.85,
+    12: 0.98,
+}

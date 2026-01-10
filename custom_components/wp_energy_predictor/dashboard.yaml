@@ -1,0 +1,31 @@
+type: custom:apexcharts-card
+chart_type: bar
+header:
+    title: Wärmepumpe Jahresprognose
+    show: true
+
+series:
+    - entity: sensor.fms_wp_month_1
+      name: Januar
+    - entity: sensor.fms_wp_month_2
+      name: Februar
+    - entity: sensor.fms_wp_month_3
+      name: März
+    - entity: sensor.fms_wp_month_4
+      name: April
+    - entity: sensor.fms_wp_month_5
+      name: Mai
+    - entity: sensor.fms_wp_month_6
+      name: Juni
+    - entity: sensor.fms_wp_month_7
+      name: Juli
+    - entity: sensor.fms_wp_month_8
+      name: August
+    - entity: sensor.fms_wp_month_9
+      name: September
+    - entity: sensor.fms_wp_month_10
+      name: Oktober
+    - entity: sensor.fms_wp_month_11
+      name: November
+    - entity: sensor.fms_wp_month_12
+      name: Dezember

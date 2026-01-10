@@ -4,74 +4,91 @@ import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.components.recorder import get_instance
-from homeassistant.components.recorder.statistics import statistics_during_period
 
-from .const import UPDATE_INTERVAL
-
+from .const import HEAT_LOAD_FACTORS
 
 _LOGGER = logging.getLogger(__name__)
 
+UPDATE_INTERVAL = 300  # 5 minutes
 
-class WPDataCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, source: str):
+
+class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
+    def __init__(self, hass: HomeAssistant, sensor_id: str):
         super().__init__(
-            hass=hass,
-            logger=_LOGGER,
+            hass,
+            _LOGGER,
             name="wp_energy_predictor",
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
         )
-        self.source = source
+        self.sensor_id = sensor_id
 
     async def _async_update_data(self):
-        """Fetch data from recorder safely using the DB executor."""
-        now = datetime.now()
+        """Fetch statistics for all months + calculate forecast."""
 
-        # Start / end of current month
-        mstart = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        recorder = get_instance(self.hass)
 
-        # --------- DB-CALL inside executor only ----------
-        def get_stats(start, end):
-            return statistics_during_period(
-                hass=self.hass,
+        def get_month_stats(year: int, month: int):
+            """Read total kWh for month using recorder.get_statistics()."""
+            # Start of month
+            start = datetime(year, month, 1)
+            # End of month (exclusive)
+            if month == 12:
+                end = datetime(year + 1, 1, 1)
+            else:
+                end = datetime(year, month + 1, 1)
+
+            stats = recorder.get_statistics(
                 start_time=start,
                 end_time=end,
-                period="hour",
-                statistic_ids=[self.source],
+                statistic_ids=[self.sensor_id],
                 types=["change"],
-                units=None,
             )
 
-        real_stats = await get_instance(self.hass).async_add_executor_job(
-            get_stats, mstart, now
-        )
-        # --------------------------------------------------
+            if stats and self.sensor_id in stats:
+                return stats[self.sensor_id][0]["change"]
 
-        # Extract real usage
-        if (
-            real_stats
-            and self.source in real_stats
-            and len(real_stats[self.source]) > 0
-        ):
-            current_real = float(real_stats[self.source][0]["change"])
-        else:
-            current_real = 0.0
+            return 0.0
 
-        # Daily average
+        now = datetime.now()
+        current_month = now.month
+        current_year = now.year
+
+        # --- REAL CURRENT MONTH ---
+        real_current = get_month_stats(current_year, current_month)
+
+        # --- DAILY AVERAGE ---
         if now.day > 1:
-            daily_avg = round(current_real / (now.day - 1), 3)
+            daily_avg = real_current / (now.day - 1)
         else:
             daily_avg = 0.0
 
-        # Build 12 months array (only current month initially real)
+        # --- FORECAST CURRENT MONTH ---
+        days_in_month = (datetime(current_year, current_month + (1 if current_month < 12 else -11), 1)
+                         - timedelta(days=1)).day
+        remaining_days = days_in_month - (now.day - 1)
+
+        forecast_current = real_current + remaining_days * daily_avg
+
+        # --- CALCULATE ALL MONTHS ---
         months = {}
-        for month in range(1, 13):
-            if month == now.month:
-                months[month] = current_real
+
+        for m in range(1, 13):
+            if m < current_month:
+                months[m] = get_month_stats(current_year, m)
+            elif m == current_month:
+                months[m] = forecast_current
             else:
-                months[month] = 0.0  # future months will be filled by sensors
+                fc_now = HEAT_LOAD_FACTORS[current_month]
+                fc_target = HEAT_LOAD_FACTORS[m]
+                months[m] = forecast_current * (fc_target / fc_now)
+
+        # --- YEAR FORECAST ---
+        year_forecast = sum(months.values())
 
         return {
-            "current_real": current_real,
-            "daily_avg": daily_avg,
             "months": months,
+            "current_real": real_current,
+            "daily_avg": daily_avg,
+            "forecast_current": forecast_current,
+            "year_forecast": year_forecast,
         }
