@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
+from datetime import datetime, timedelta
+from homeassistant.components import history
 import logging
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.components.recorder import get_instance
+
 
 from .const import HEAT_LOAD_FACTORS
 
@@ -25,29 +27,38 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Fetch statistics for all months + calculate forecast."""
 
-        recorder = get_instance(self.hass)
+        def get_month_stats(hass, entity_id, year, month):
+            """Return energy consumption for a given month using history API (HA 2026.1)."""
 
-        def get_month_stats(year: int, month: int):
-            """Read total kWh for month using recorder.get_statistics()."""
-            # Start of month
+            # Monat starten
             start = datetime(year, month, 1)
-            # End of month (exclusive)
+
+            # Ersten Tag des nächsten Monats bestimmen
             if month == 12:
                 end = datetime(year + 1, 1, 1)
             else:
                 end = datetime(year, month + 1, 1)
 
-            stats = recorder.get_statistics(
+            # Daten aus dem Recorder-History-System holen
+            states = history.get_significant_states(
+                hass=hass,
                 start_time=start,
                 end_time=end,
-                statistic_ids=[self.sensor_id],
-                types=["change"],
+                entity_ids=[entity_id],
+                significant_changes_only=False,
             )
 
-            if stats and self.sensor_id in stats:
-                return stats[self.sensor_id][0]["change"]
+            states = states.get(entity_id)
 
-            return 0.0
+            if not states or len(states) < 2:
+                return 0.0
+
+            # Erstes & letztes State-Objekt
+            first = float(states[0].state or 0)
+            last  = float(states[-1].state or 0)
+
+            # Monatsverbrauch berechnen
+            return max(last - first, 0.0)
 
         now = datetime.now()
         current_month = now.month
