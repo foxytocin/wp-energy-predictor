@@ -1,6 +1,6 @@
 from homeassistant import config_entries
 import voluptuous as vol
-from .const import DOMAIN, CONF_SENSOR
+from .const import DOMAIN, CONF_SENSOR, CONF_PRICE_PER_KWH
 
 
 def _get_energy_sensors(hass):
@@ -55,6 +55,7 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema({
             vol.Required(CONF_SENSOR): vol.In(sensors),
+            vol.Optional(CONF_PRICE_PER_KWH, default=0.30): vol.Coerce(float),
         })
 
         return self.async_show_form(step_id="user", data_schema=schema)
@@ -77,6 +78,12 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
                     CONF_SENSOR, self.config_entry.data[CONF_SENSOR]
                 )
             ): vol.In(sensors),
+            vol.Optional(
+                CONF_PRICE_PER_KWH,
+                default=self.config_entry.options.get(
+                    CONF_PRICE_PER_KWH, self.config_entry.data.get(CONF_PRICE_PER_KWH, 0.30)
+                ),
+            ): vol.Coerce(float),
         })
 
         return self.async_show_form(step_id="init", data_schema=schema)

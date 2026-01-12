@@ -54,6 +54,8 @@ async def async_setup_entry(
         for description in SENSOR_DESCRIPTIONS
     ]
     entities.extend(MonthSensor(coordinator, entry, m) for m in range(1, 13))
+    entities.extend(MonthCostSensor(coordinator, entry, m) for m in range(1, 13))
+    entities.append(YearCostForecastSensor(coordinator, entry))
 
     async_add_entities(entities)
 
@@ -102,3 +104,45 @@ class MonthSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEntity)
     @property
     def native_value(self):
         return self.coordinator.data["months"][self._month]
+
+
+class MonthCostSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEntity):
+    def __init__(
+        self,
+        coordinator: WPEnergyPredictorCoordinator,
+        entry: ConfigEntry,
+        month: int,
+    ) -> None:
+        super().__init__(coordinator)
+        self._month = month
+        self._attr_name = f"FMS WP Month {month} Cost"
+        self._attr_unique_id = f"{entry.entry_id}_month_{month}_cost"
+        self._attr_native_unit_of_measurement = coordinator.hass.config.currency
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "WP Energy Predictor",
+        }
+
+    @property
+    def native_value(self):
+        return self.coordinator.data["month_costs"][self._month]
+
+
+class YearCostForecastSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEntity):
+    def __init__(
+        self,
+        coordinator: WPEnergyPredictorCoordinator,
+        entry: ConfigEntry,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_name = "FMS WP Year Cost Forecast"
+        self._attr_unique_id = f"{entry.entry_id}_year_cost_forecast"
+        self._attr_native_unit_of_measurement = coordinator.hass.config.currency
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "WP Energy Predictor",
+        }
+
+    @property
+    def native_value(self):
+        return self.coordinator.data["year_cost_forecast"]

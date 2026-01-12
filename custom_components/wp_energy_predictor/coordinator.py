@@ -11,14 +11,14 @@ from homeassistant.components.recorder.statistics import statistics_during_perio
 from homeassistant.const import UnitOfEnergy
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, CONF_SENSOR, HEAT_LOAD_FACTORS
+from .const import DOMAIN, CONF_PRICE_PER_KWH, CONF_SENSOR, HEAT_LOAD_FACTORS
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, source_sensor: str):
+    def __init__(self, hass, source_sensor: str, price_per_kwh: float = 0.0):
         super().__init__(
             hass,
             logger=_LOGGER,
@@ -26,6 +26,7 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=5),
         )
         self.source = source_sensor
+        self.price_per_kwh = float(price_per_kwh or 0.0)
 
     async def _async_update_data(self):
         """Fetch monthly values + current month real + forecast."""
@@ -114,12 +115,18 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
         forecast_current = months[month]
         year_forecast = sum(months.values())
 
+        month_costs = {m: v * self.price_per_kwh for m, v in months.items()}
+        year_cost_forecast = year_forecast * self.price_per_kwh
+
         return {
             "current_real": real_current,
             "daily_avg": daily_avg,
             "forecast_current": forecast_current,
             "year_forecast": year_forecast,
             "months": {m: round(v, 2) for m, v in months.items()},
+            "price_per_kwh": self.price_per_kwh,
+            "month_costs": {m: round(v, 2) for m, v in month_costs.items()},
+            "year_cost_forecast": round(year_cost_forecast, 2),
         }
 
     def _get_month_bounds(self, dt: datetime):

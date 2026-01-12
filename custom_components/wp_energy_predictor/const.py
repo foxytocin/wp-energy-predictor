@@ -1,5 +1,6 @@
 DOMAIN = "wp_energy_predictor"
 CONF_SENSOR = "sensor"
+CONF_PRICE_PER_KWH = "price_per_kwh"
 
 HEAT_LOAD_FACTORS = {
     1: 1.30,
