@@ -4,13 +4,19 @@ from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import CONF_PRICE_PER_KWH, CONF_SENSOR, DOMAIN
 from .coordinator import WPEnergyPredictorCoordinator
+from .service import async_setup_services
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data.setdefault(DOMAIN, {})
 
     sensor_id = entry.options.get(CONF_SENSOR, entry.data[CONF_SENSOR])
     price = entry.options.get(
-        CONF_PRICE_PER_KWH, entry.data.get(CONF_PRICE_PER_KWH, 0.0)
+        CONF_PRICE_PER_KWH, entry.data.get(CONF_PRICE_PER_KWH, 0.30)
     )
     coordinator = WPEnergyPredictorCoordinator(hass, sensor_id, price_per_kwh=price)
     try:
@@ -19,8 +25,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         raise ConfigEntryNotReady(str(err)) from err
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
+    await async_setup_services(hass)
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):

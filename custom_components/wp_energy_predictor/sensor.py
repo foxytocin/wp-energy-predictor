@@ -80,7 +80,12 @@ class WPEnergyPredictorSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], S
 
     @property
     def native_value(self):
-        return round(self.entity_description.value_fn(self.coordinator.data), 2)
+        if self.coordinator.data is None:
+            return None
+        try:
+            return round(self.entity_description.value_fn(self.coordinator.data), 2)
+        except (KeyError, TypeError):
+            return None
 
 
 class MonthSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEntity):
@@ -103,7 +108,9 @@ class MonthSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEntity)
 
     @property
     def native_value(self):
-        return self.coordinator.data["months"][self._month]
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.get("months", {}).get(self._month)
 
 
 class MonthCostSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEntity):
@@ -125,7 +132,9 @@ class MonthCostSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEnt
 
     @property
     def native_value(self):
-        return self.coordinator.data["month_costs"][self._month]
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.get("month_costs", {}).get(self._month)
 
 
 class YearCostForecastSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEntity):
@@ -145,4 +154,6 @@ class YearCostForecastSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], Se
 
     @property
     def native_value(self):
-        return self.coordinator.data["year_cost_forecast"]
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.get("year_cost_forecast")

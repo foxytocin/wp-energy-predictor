@@ -1,9 +1,8 @@
+import logging
 
-import os
+_LOGGER = logging.getLogger(__name__)
 
-DASH_PATH="/config/wp_forecast_dashboard.yaml"
-
-DASH_YAML="""
+DASH_YAML = """
 title: WP Forecast
 views:
   - title: Forecast
@@ -29,17 +28,34 @@ views:
           - entity: sensor.fms_wp_month_12
 """
 
+
 async def async_setup_services(hass):
+    """Register custom services for the integration."""
+    
+    async def create_dashboard(call):
+        """Create a YAML dashboard with the WP yearly forecast."""
+        dash_path = hass.config.path("wp_forecast_dashboard.yaml")
+        
+        try:
+            # Write dashboard YAML file
+            await hass.async_add_executor_job(_write_dashboard_file, dash_path)
+            
+            # Register dashboard with Lovelace
+            await hass.components.lovelace.async_create_dashboard(
+                url_path="wp-forecast",
+                mode="yaml",
+                config={"filename": dash_path},
+                title="WP Forecast",
+                icon="mdi:chart-bar",
+            )
+            _LOGGER.info("Created WP Forecast dashboard at %s", dash_path)
+        except Exception as err:
+            _LOGGER.error("Failed to create dashboard: %s", err)
 
-    async def create(call):
-        with open(DASH_PATH,"w") as f:
-            f.write(DASH_YAML)
-        hass.components.lovelace.create_dashboard(
-            url_path="wp-forecast",
-            mode="yaml",
-            filename=DASH_PATH,
-            title="WP Forecast",
-            icon="mdi:chart-bar"
-        )
+    hass.services.async_register("wp_energy_predictor", "create_dashboard", create_dashboard)
 
-    hass.services.async_register("wp_energy_predictor","create_dashboard",create)
+
+def _write_dashboard_file(path: str) -> None:
+    """Write dashboard YAML file (runs in executor)."""
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(DASH_YAML)

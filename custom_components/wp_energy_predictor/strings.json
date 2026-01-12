@@ -1,0 +1,35 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "WP Energy Predictor Setup",
+                "description": "Configure your heat pump energy prediction sensor.",
+                "data": {
+                    "sensor": "Energy Sensor",
+                    "price_per_kwh": "Price per kWh"
+                }
+            }
+        },
+        "error": {
+            "no_energy_sensors_found": "No energy sensors found. Please ensure you have at least one sensor with device_class 'energy', state_class 'total' or 'total_increasing', and unit 'kWh' or 'Wh'."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "WP Energy Predictor Options",
+                "description": "Update your heat pump energy prediction settings.",
+                "data": {
+                    "sensor": "Energy Sensor",
+                    "price_per_kwh": "Price per kWh"
+                }
+            }
+        }
+    },
+    "services": {
+        "create_dashboard": {
+            "name": "Create WP Forecast Dashboard",
+            "description": "Creates a YAML dashboard with the WP yearly forecast chart."
+        }
+    }
+}

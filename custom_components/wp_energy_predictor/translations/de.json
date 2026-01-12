@@ -1,0 +1,35 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "WP Energy Predictor Einrichtung",
+                "description": "Konfiguriere deinen Wärmepumpen-Energievorhersage-Sensor.",
+                "data": {
+                    "sensor": "Energie-Sensor",
+                    "price_per_kwh": "Preis pro kWh"
+                }
+            }
+        },
+        "error": {
+            "no_energy_sensors_found": "Keine Energie-Sensoren gefunden. Bitte stelle sicher, dass du mindestens einen Sensor mit device_class 'energy', state_class 'total' oder 'total_increasing' und unit 'kWh' oder 'Wh' hast."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "WP Energy Predictor Optionen",
+                "description": "Aktualisiere deine Wärmepumpen-Energievorhersage-Einstellungen.",
+                "data": {
+                    "sensor": "Energie-Sensor",
+                    "price_per_kwh": "Preis pro kWh"
+                }
+            }
+        }
+    },
+    "services": {
+        "create_dashboard": {
+            "name": "WP Forecast Dashboard erstellen",
+            "description": "Erstellt ein YAML-Dashboard mit dem WP-Jahresprognose-Diagramm."
+        }
+    }
+}
