@@ -88,6 +88,8 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
             daily_avg = 0.0
 
         days_in_month = calendar.monthrange(year, month)[1]
+        remaining_days = days_in_month - (now.day - 1)
+        forecast_current_value = real_current + daily_avg * remaining_days
 
         # Build dict of 12 months
         months = {}
@@ -101,14 +103,13 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
 
             elif m == month:
                 # Current month → forecast
-                remaining_days = days_in_month - (now.day - 1)
-                months[m] = real_current + daily_avg * remaining_days
+                months[m] = forecast_current_value
 
             else:
                 # Future → based on heat load factors
                 fc_now = HEAT_LOAD_FACTORS[month]
                 fc_target = HEAT_LOAD_FACTORS[m]
-                months[m] = real_current * (fc_target / fc_now)
+                months[m] = forecast_current_value * (fc_target / fc_now)
 
         forecast_current = months[month]
         year_forecast = sum(months.values())
