@@ -1,6 +1,6 @@
 from homeassistant import config_entries
 import voluptuous as vol
-from .const import DOMAIN, CONF_SENSOR, CONF_PRICE_PER_KWH
+from .const import CONF_NONE, CONF_PRICE_PER_KWH, CONF_SENSOR, CONF_WW_SENSOR, DOMAIN
 
 
 def _get_energy_sensors(hass):
@@ -33,6 +33,10 @@ def _get_energy_sensors(hass):
     return sensors
 
 
+def _sensor_select_with_none(sensors: list[str]) -> dict[str, str]:
+    return {CONF_NONE: "— nicht verwenden —", **{s: s for s in sensors}}
+
+
 class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     def async_get_options_flow(config_entry):
@@ -40,6 +44,8 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         if user_input is not None:
+            if user_input.get(CONF_WW_SENSOR) == CONF_NONE:
+                user_input.pop(CONF_WW_SENSOR, None)
             return self.async_create_entry(
                 title="WP Energy Predictor",
                 data=user_input
@@ -55,6 +61,7 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema({
             vol.Required(CONF_SENSOR): vol.In(sensors),
+            vol.Optional(CONF_WW_SENSOR, default=CONF_NONE): vol.In(_sensor_select_with_none(sensors)),
             vol.Optional(CONF_PRICE_PER_KWH, default=0.30): vol.Coerce(float),
         })
 
@@ -66,9 +73,17 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
+            if user_input.get(CONF_WW_SENSOR) == CONF_NONE:
+                user_input.pop(CONF_WW_SENSOR, None)
             return self.async_create_entry(title="", data=user_input)
 
         sensors = _get_energy_sensors(self.hass)
+
+        ww_default = self.config_entry.options.get(
+            CONF_WW_SENSOR, self.config_entry.data.get(CONF_WW_SENSOR, CONF_NONE)
+        )
+        if ww_default not in sensors:
+            ww_default = CONF_NONE
 
         schema = vol.Schema({
             vol.Required(
@@ -77,6 +92,7 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
                     CONF_SENSOR, self.config_entry.data[CONF_SENSOR]
                 )
             ): vol.In(sensors),
+            vol.Optional(CONF_WW_SENSOR, default=ww_default): vol.In(_sensor_select_with_none(sensors)),
             vol.Optional(
                 CONF_PRICE_PER_KWH,
                 default=self.config_entry.options.get(
@@ -86,4 +102,3 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
         })
 
         return self.async_show_form(step_id="init", data_schema=schema)
-

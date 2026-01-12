@@ -17,15 +17,24 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, source_sensor: str, price_per_kwh: float = 0.0):
+    def __init__(
+        self,
+        hass,
+        source_sensor: str,
+        *,
+        price_per_kwh: float = 0.0,
+        load_factors: dict[int, float] | None = None,
+        coordinator_name: str | None = None,
+    ):
         super().__init__(
             hass,
             logger=_LOGGER,
-            name=DOMAIN,
+            name=coordinator_name or DOMAIN,
             update_interval=timedelta(minutes=5),
         )
         self.source = source_sensor
         self.price_per_kwh = float(price_per_kwh or 0.0)
+        self._load_factors = load_factors or HEAT_LOAD_FACTORS
         # Cache for past months to avoid repeated DB queries
         self._cached_months: dict[int, float] = {}
         self._cache_year: int | None = None
@@ -124,8 +133,8 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
                 months[m] = forecast_current_value
             else:
                 # Future → based on heat load factors
-                fc_now = HEAT_LOAD_FACTORS[month]
-                fc_target = HEAT_LOAD_FACTORS[m]
+                fc_now = self._load_factors.get(month, 0.0)
+                fc_target = self._load_factors.get(m, 0.0)
                 months[m] = forecast_current_value * (fc_target / fc_now) if fc_now else 0.0
 
         forecast_current = months[month]

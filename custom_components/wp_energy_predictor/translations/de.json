@@ -6,6 +6,7 @@
                 "description": "Konfiguriere deinen Wärmepumpen-Energievorhersage-Sensor.",
                 "data": {
                     "sensor": "Energie-Sensor",
+                    "warmwater_sensor": "Warmwasser-Energie-Sensor (optional)",
                     "price_per_kwh": "Preis pro kWh"
                 }
             }
@@ -21,6 +22,7 @@
                 "description": "Aktualisiere deine Wärmepumpen-Energievorhersage-Einstellungen.",
                 "data": {
                     "sensor": "Energie-Sensor",
+                    "warmwater_sensor": "Warmwasser-Energie-Sensor (optional)",
                     "price_per_kwh": "Preis pro kWh"
                 }
             }

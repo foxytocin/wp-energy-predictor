@@ -1,31 +1,125 @@
 type: custom:apexcharts-card
-chart_type: bar
 header:
-    title: Wärmepumpe Jahresprognose
-    show: true
-
+  title: Wärmepumpe Monatsverbrauch (Heizen + Warmwasser)
+  show: true
+chart_type: line
+stacked: true
+graph_span: 366d
+span:
+  start: year
+apex_config:
+  chart:
+    type: bar
+  stroke:
+    width: 0
+  xaxis:
+    type: datetime
+    tickAmount: 12
+    labels:
+      format: MMM
+  plotOptions:
+    bar:
+      columnWidth: 60%
+      dataLabels:
+        position: top
+  dataLabels:
+    enabled: false
 series:
-    - entity: sensor.fms_wp_month_1
-      name: Januar
-    - entity: sensor.fms_wp_month_2
-      name: Februar
-    - entity: sensor.fms_wp_month_3
-      name: März
-    - entity: sensor.fms_wp_month_4
-      name: April
-    - entity: sensor.fms_wp_month_5
-      name: Mai
-    - entity: sensor.fms_wp_month_6
-      name: Juni
-    - entity: sensor.fms_wp_month_7
-      name: Juli
-    - entity: sensor.fms_wp_month_8
-      name: August
-    - entity: sensor.fms_wp_month_9
-      name: September
-    - entity: sensor.fms_wp_month_10
-      name: Oktober
-    - entity: sensor.fms_wp_month_11
-      name: November
-    - entity: sensor.fms_wp_month_12
-      name: Dezember
+  - entity: sensor.fms_wp_current_month_real
+    name: Heizen (Real) (kWh)
+    type: column
+    data_generator: |
+      const year = start.getFullYear();
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const num = (eid) => {
+        const s = hass.states[eid];
+        const v = s ? Number.parseFloat(s.state) : null;
+        return Number.isFinite(v) ? v : null;
+      };
+      const points = [];
+      for (let m = 1; m <= 12; m++) {
+        let v = null;
+        if (m < currentMonth) v = num(`sensor.fms_wp_month_${m}`);
+        else if (m === currentMonth) v = num('sensor.fms_wp_current_month_real');
+        else v = 0;
+        points.push([new Date(year, m - 1, 1).getTime(), v]);
+      }
+      return points;
+  - entity: sensor.fms_wp_current_month_forecast
+    name: Heizen (Prognose) (kWh)
+    type: column
+    show:
+      legend_value: false
+    data_generator: |
+      const year = start.getFullYear();
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const num = (eid) => {
+        const s = hass.states[eid];
+        const v = s ? Number.parseFloat(s.state) : null;
+        return Number.isFinite(v) ? v : null;
+      };
+      const points = [];
+      for (let m = 1; m <= 12; m++) {
+        let v = null;
+        if (m < currentMonth) v = 0;
+        else if (m === currentMonth) {
+          const real = num('sensor.fms_wp_current_month_real') ?? 0;
+          const fc = num('sensor.fms_wp_current_month_forecast');
+          v = fc == null ? null : Math.max(0, fc - real);
+        } else {
+          v = num(`sensor.fms_wp_month_${m}`);
+        }
+        points.push([new Date(year, m - 1, 1).getTime(), v]);
+      }
+      return points;
+  - entity: sensor.fms_ww_current_month_real
+    name: Warmwasser (Real) (kWh)
+    type: column
+    data_generator: |
+      const year = start.getFullYear();
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const num = (eid) => {
+        const s = hass.states[eid];
+        const v = s ? Number.parseFloat(s.state) : null;
+        return Number.isFinite(v) ? v : null;
+      };
+      const points = [];
+      for (let m = 1; m <= 12; m++) {
+        let v = null;
+        if (m < currentMonth) v = num(`sensor.fms_ww_month_${m}`);
+        else if (m === currentMonth) v = num('sensor.fms_ww_current_month_real');
+        else v = 0;
+        points.push([new Date(year, m - 1, 1).getTime(), v]);
+      }
+      return points;
+  - entity: sensor.fms_ww_current_month_forecast
+    name: Warmwasser (Prognose) (kWh)
+    type: column
+    show:
+      legend_value: false
+    data_generator: |
+      const year = start.getFullYear();
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const num = (eid) => {
+        const s = hass.states[eid];
+        const v = s ? Number.parseFloat(s.state) : null;
+        return Number.isFinite(v) ? v : null;
+      };
+      const points = [];
+      for (let m = 1; m <= 12; m++) {
+        let v = null;
+        if (m < currentMonth) v = 0;
+        else if (m === currentMonth) {
+          const real = num('sensor.fms_ww_current_month_real') ?? 0;
+          const fc = num('sensor.fms_ww_current_month_forecast');
+          v = fc == null ? null : Math.max(0, fc - real);
+        } else {
+          v = num(`sensor.fms_ww_month_${m}`);
+        }
+        points.push([new Date(year, m - 1, 1).getTime(), v]);
+      }
+      return points;
