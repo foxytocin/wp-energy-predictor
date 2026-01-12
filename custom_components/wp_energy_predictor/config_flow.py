@@ -36,7 +36,7 @@ def _get_energy_sensors(hass):
 class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     def async_get_options_flow(config_entry):
-        return WPEnergyPredictorOptionsFlow(config_entry)
+        return WPEnergyPredictorOptionsFlow()
 
     async def async_step_user(self, user_input=None):
         if user_input is not None:
@@ -62,8 +62,7 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
-    def __init__(self, config_entry):
-        self.config_entry = config_entry
+    """Options flow handler - config_entry is provided by parent class."""
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
@@ -87,3 +86,4 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
         })
 
         return self.async_show_form(step_id="init", data_schema=schema)
+
