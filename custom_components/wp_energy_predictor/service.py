@@ -7,25 +7,92 @@ title: WP Forecast
 views:
   - title: Forecast
     cards:
-      - type: custom:apexcharts-card
-        header:
-          title: Wärmepumpe Jahresprognose
-          show: true
-        all_series_config:
-          type: column
-        series:
-          - entity: sensor.fms_wp_month_1
-          - entity: sensor.fms_wp_month_2
-          - entity: sensor.fms_wp_month_3
-          - entity: sensor.fms_wp_month_4
-          - entity: sensor.fms_wp_month_5
-          - entity: sensor.fms_wp_month_6
-          - entity: sensor.fms_wp_month_7
-          - entity: sensor.fms_wp_month_8
-          - entity: sensor.fms_wp_month_9
-          - entity: sensor.fms_wp_month_10
-          - entity: sensor.fms_wp_month_11
-          - entity: sensor.fms_wp_month_12
+      - type: vertical-stack
+        cards:
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: WP Monatsverbrauch (Real + Prognose)
+            chart_type: line
+            stacked: true
+            graph_span: 366d
+            span:
+              start: year
+            apex_config:
+              chart:
+                type: bar
+              stroke:
+                width: 0
+              xaxis:
+                type: datetime
+                tickAmount: 12
+                labels:
+                  format: MMM
+              plotOptions:
+                bar:
+                  columnWidth: 60%
+                  dataLabels:
+                    position: top
+              dataLabels:
+                enabled: false
+            series:
+              - entity: sensor.fms_wp_current_month_real
+                name: Real (kWh)
+                type: column
+                data_generator: |
+                  const year = start.getFullYear();
+                  const now = new Date();
+                  const currentMonth = now.getMonth() + 1;
+                  const num = (eid) => {
+                    const s = hass.states[eid];
+                    const v = s ? Number.parseFloat(s.state) : null;
+                    return Number.isFinite(v) ? v : null;
+                  };
+                  const points = [];
+                  for (let m = 1; m <= 12; m++) {
+                    let v = null;
+                    if (m < currentMonth) v = num(`sensor.fms_wp_month_${m}`);
+                    else if (m === currentMonth) v = num('sensor.fms_wp_current_month_real');
+                    else v = 0;
+                    points.push([new Date(year, m - 1, 1).getTime(), v]);
+                  }
+                  return points;
+              - entity: sensor.fms_wp_current_month_forecast
+                name: Prognose (Rest) (kWh)
+                type: column
+                show:
+                  legend_value: false
+                data_generator: |
+                  const year = start.getFullYear();
+                  const now = new Date();
+                  const currentMonth = now.getMonth() + 1;
+                  const num = (eid) => {
+                    const s = hass.states[eid];
+                    const v = s ? Number.parseFloat(s.state) : null;
+                    return Number.isFinite(v) ? v : null;
+                  };
+                  const points = [];
+                  for (let m = 1; m <= 12; m++) {
+                    let v = null;
+                    if (m < currentMonth) v = 0;
+                    else if (m === currentMonth) {
+                      const real = num('sensor.fms_wp_current_month_real') ?? 0;
+                      const fc = num('sensor.fms_wp_current_month_forecast');
+                      v = fc == null ? null : Math.max(0, fc - real);
+                    } else {
+                      v = num(`sensor.fms_wp_month_${m}`);
+                    }
+                    points.push([new Date(year, m - 1, 1).getTime(), v]);
+                  }
+                  return points;
+          - type: entities
+            entities:
+              - entity: sensor.fms_wp_year_forecast
+                name: "⚡ Jahresprognose"
+                icon: mdi:lightning-bolt
+              - entity: sensor.fms_wp_year_cost_forecast
+                name: "💰 Jahreskosten (Prognose)"
+                icon: mdi:currency-eur
 """
 
 
