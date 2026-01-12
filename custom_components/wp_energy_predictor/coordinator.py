@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import calendar
+import inspect
 import logging
 from datetime import datetime, timedelta
 
@@ -44,14 +45,32 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
             start = dt_util.as_utc(start_local)
             end = dt_util.as_utc(end_local)
 
-            stats = statistics_during_period(
-                self.hass,
-                start,
-                end,
-                statistic_ids=[self.source],
-                types=["change"],
-                units=[UnitOfEnergy.KILO_WATT_HOUR],
-            )
+            values_by_name = {
+                "hass": self.hass,
+                "start": start,
+                "start_time": start,
+                "end": end,
+                "end_time": end,
+                "statistic_ids": [self.source],
+                "period": "month",
+                "types": ["change"],
+                "units": [UnitOfEnergy.KILO_WATT_HOUR],
+                "unit": UnitOfEnergy.KILO_WATT_HOUR,
+            }
+
+            args: list[object] = []
+            kwargs: dict[str, object] = {}
+            for param in inspect.signature(statistics_during_period).parameters.values():
+                if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+                    continue
+                if param.name not in values_by_name:
+                    continue
+                if param.kind == param.POSITIONAL_ONLY:
+                    args.append(values_by_name[param.name])
+                else:
+                    kwargs[param.name] = values_by_name[param.name]
+
+            stats = statistics_during_period(*args, **kwargs)
 
             if stats and self.source in stats:
                 return float(stats[self.source][0]["change"])

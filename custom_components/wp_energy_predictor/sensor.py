@@ -47,9 +47,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    sensor_id = entry.options.get(CONF_SENSOR, entry.data[CONF_SENSOR])
-    coordinator = WPEnergyPredictorCoordinator(hass, sensor_id)
-    await coordinator.async_config_entry_first_refresh()
+    coordinator: WPEnergyPredictorCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     entities: list[SensorEntity] = [
         WPEnergyPredictorSensor(coordinator, entry, description)
