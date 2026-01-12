@@ -1,11 +1,17 @@
 DOMAIN = "wp_energy_predictor"
+CONF_SENSOR = "sensor"
 
-CONF_SENSOR = "energy_sensor"
-CONF_HLF = "hlf"
-
-DEFAULT_HLF = {
-    1: 1.0, 2: 0.95, 3: 0.8, 4: 0.6, 5: 0.4, 6: 0.3,
-    7: 0.2, 8: 0.25, 9: 0.45, 10: 0.7, 11: 0.9, 12: 1.1
+HEAT_LOAD_FACTORS = {
+    1: 1.30,
+    2: 1.15,
+    3: 1.05,
+    4: 0.85,
+    5: 0.60,
+    6: 0.40,
+    7: 0.35,
+    8: 0.40,
+    9: 0.55,
+    10: 0.75,
+    11: 1.00,
+    12: 1.20,
 }
-
-UPDATE_INTERVAL = 300  # every 5 minutes

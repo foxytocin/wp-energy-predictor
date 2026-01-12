@@ -34,6 +34,10 @@ def _get_energy_sensors(hass):
 
 
 class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    @staticmethod
+    def async_get_options_flow(config_entry):
+        return WPEnergyPredictorOptionsFlow(config_entry)
+
     async def async_step_user(self, user_input=None):
         if user_input is not None:
             return self.async_create_entry(

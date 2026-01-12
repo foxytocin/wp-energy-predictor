@@ -1,89 +1,106 @@
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.core import HomeAssistant
+from __future__ import annotations
 
-from .const import DOMAIN, CONF_SENSOR
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import CONF_SENSOR, DOMAIN
 from .coordinator import WPEnergyPredictorCoordinator
 
 
-async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities):
-    sensor_id = entry.data[CONF_SENSOR]
+@dataclass(frozen=True, kw_only=True)
+class WPEnergyPredictorSensorEntityDescription(SensorEntityDescription):
+    value_fn: Callable[[dict], float]
+
+
+SENSOR_DESCRIPTIONS: tuple[WPEnergyPredictorSensorEntityDescription, ...] = (
+    WPEnergyPredictorSensorEntityDescription(
+        key="current_month_real",
+        name="FMS WP Current Month Real",
+        value_fn=lambda data: float(data["current_real"]),
+    ),
+    WPEnergyPredictorSensorEntityDescription(
+        key="daily_average",
+        name="FMS WP Daily Average",
+        value_fn=lambda data: float(data["daily_avg"]),
+    ),
+    WPEnergyPredictorSensorEntityDescription(
+        key="current_month_forecast",
+        name="FMS WP Current Month Forecast",
+        value_fn=lambda data: float(data["forecast_current"]),
+    ),
+    WPEnergyPredictorSensorEntityDescription(
+        key="year_forecast",
+        name="FMS WP Year Forecast",
+        value_fn=lambda data: float(data["year_forecast"]),
+    ),
+)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    sensor_id = entry.options.get(CONF_SENSOR, entry.data[CONF_SENSOR])
     coordinator = WPEnergyPredictorCoordinator(hass, sensor_id)
     await coordinator.async_config_entry_first_refresh()
 
-    entities = [
-        CurrentMonthRealSensor(coordinator),
-        DailyAverageSensor(coordinator),
-        CurrentMonthForecastSensor(coordinator),
-        YearForecastSensor(coordinator),
+    entities: list[SensorEntity] = [
+        WPEnergyPredictorSensor(coordinator, entry, description)
+        for description in SENSOR_DESCRIPTIONS
     ]
-
-    for m in range(1, 13):
-        entities.append(MonthSensor(coordinator, m))
+    entities.extend(MonthSensor(coordinator, entry, m) for m in range(1, 13))
 
     async_add_entities(entities)
 
 
-class BaseSensor(SensorEntity):
+class WPEnergyPredictorSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEntity):
     _attr_native_unit_of_measurement = "kWh"
 
-    def __init__(self, coordinator):
-        self.coordinator = coordinator
-
-    @property
-    def should_poll(self):
-        return False
-
-    @property
-    def available(self):
-        return self.coordinator.last_update_success
-
-    async def async_update(self):
-        await self.coordinator.async_request_refresh()
-
-
-class CurrentMonthRealSensor(BaseSensor):
-    _attr_name = "FMS WP Current Month Real"
-    _attr_unique_id = "fms_wp_current_month_real"
-
-    @property
-    def native_value(self):
-        return round(self.coordinator.data["current_real"], 2)
-
-
-class DailyAverageSensor(BaseSensor):
-    _attr_name = "FMS WP Daily Average"
-    _attr_unique_id = "fms_wp_daily_average"
-
-    @property
-    def native_value(self):
-        return round(self.coordinator.data["daily_avg"], 3)
-
-
-class CurrentMonthForecastSensor(BaseSensor):
-    _attr_name = "FMS WP Current Month Forecast"
-    _attr_unique_id = "fms_wp_current_month_forecast"
-
-    @property
-    def native_value(self):
-        return round(self.coordinator.data["forecast_current"], 2)
-
-
-class YearForecastSensor(BaseSensor):
-    _attr_name = "FMS WP Year Forecast"
-    _attr_unique_id = "fms_wp_year_forecast"
-
-    @property
-    def native_value(self):
-        return round(self.coordinator.data["year_forecast"], 2)
-
-
-class MonthSensor(BaseSensor):
-    def __init__(self, coordinator, month):
+    def __init__(
+        self,
+        coordinator: WPEnergyPredictorCoordinator,
+        entry: ConfigEntry,
+        description: WPEnergyPredictorSensorEntityDescription,
+    ) -> None:
         super().__init__(coordinator)
-        self.month = month
-        self._attr_name = f"FMS WP Month {month}"
-        self._attr_unique_id = f"fms_wp_month_{month}"
+        self.entity_description = description
+        self._attr_name = description.name
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "WP Energy Predictor",
+        }
 
     @property
     def native_value(self):
-        return round(self.coordinator.data["months"][self.month], 2)
+        return round(self.entity_description.value_fn(self.coordinator.data), 2)
+
+
+class MonthSensor(CoordinatorEntity[WPEnergyPredictorCoordinator], SensorEntity):
+    _attr_native_unit_of_measurement = "kWh"
+
+    def __init__(
+        self,
+        coordinator: WPEnergyPredictorCoordinator,
+        entry: ConfigEntry,
+        month: int,
+    ) -> None:
+        super().__init__(coordinator)
+        self._month = month
+        self._attr_name = f"FMS WP Month {month}"
+        self._attr_unique_id = f"{entry.entry_id}_month_{month}"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, entry.entry_id)},
+            "name": "WP Energy Predictor",
+        }
+
+    @property
+    def native_value(self):
+        return self.coordinator.data["months"][self._month]

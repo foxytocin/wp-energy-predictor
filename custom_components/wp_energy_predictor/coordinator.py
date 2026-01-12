@@ -1,105 +1,111 @@
-from datetime import datetime, timedelta
-from datetime import datetime, timedelta
-from homeassistant.components import history
+from __future__ import annotations
+
+import calendar
 import logging
+from datetime import datetime, timedelta
 
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.components.recorder import get_instance
+from homeassistant.components.recorder.statistics import statistics_during_period
+from homeassistant.const import UnitOfEnergy
+from homeassistant.util import dt as dt_util
 
+from .const import DOMAIN, CONF_SENSOR, HEAT_LOAD_FACTORS
 
-from .const import HEAT_LOAD_FACTORS
 
 _LOGGER = logging.getLogger(__name__)
 
-UPDATE_INTERVAL = 300  # 5 minutes
-
 
 class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass: HomeAssistant, sensor_id: str):
+    def __init__(self, hass, source_sensor: str):
         super().__init__(
             hass,
-            _LOGGER,
-            name="wp_energy_predictor",
-            update_interval=timedelta(seconds=UPDATE_INTERVAL),
+            logger=_LOGGER,
+            name=DOMAIN,
+            update_interval=timedelta(minutes=5),
         )
-        self.sensor_id = sensor_id
+        self.source = source_sensor
 
     async def _async_update_data(self):
-        """Fetch statistics for all months + calculate forecast."""
+        """Fetch monthly values + current month real + forecast."""
+        now = dt_util.now()
+        year = now.year
+        month = now.month
+        tz = dt_util.DEFAULT_TIME_ZONE
 
-        def get_month_stats(hass, entity_id, year, month):
-            """Return energy consumption for a given month using history API (HA 2026.1)."""
-
-            # Monat starten
-            start = datetime(year, month, 1)
-
-            # Ersten Tag des nächsten Monats bestimmen
+        # This function is executed in the executor (mandatory for recorder access)
+        def get_month_stats(year: int, month: int) -> float:
+            start_local = datetime(year, month, 1, tzinfo=tz)
             if month == 12:
-                end = datetime(year + 1, 1, 1)
+                end_local = datetime(year + 1, 1, 1, tzinfo=tz) - timedelta(seconds=1)
             else:
-                end = datetime(year, month + 1, 1)
+                end_local = datetime(year, month + 1, 1, tzinfo=tz) - timedelta(seconds=1)
 
-            # Daten aus dem Recorder-History-System holen
-            states = history.get_significant_states(
-                hass=hass,
-                start_time=start,
-                end_time=end,
-                entity_ids=[entity_id],
-                significant_changes_only=False,
+            start = dt_util.as_utc(start_local)
+            end = dt_util.as_utc(end_local)
+
+            stats = statistics_during_period(
+                self.hass,
+                start,
+                end,
+                statistic_ids=[self.source],
+                types=["change"],
+                units=[UnitOfEnergy.KILO_WATT_HOUR],
             )
 
-            states = states.get(entity_id)
+            if stats and self.source in stats:
+                return float(stats[self.source][0]["change"])
+            return 0.0
 
-            if not states or len(states) < 2:
-                return 0.0
+        # CALL RECORDER IN EXECUTOR (important!)
+        real_current = await get_instance(self.hass).async_add_executor_job(
+            get_month_stats, year, month
+        )
 
-            # Erstes & letztes State-Objekt
-            first = float(states[0].state or 0)
-            last  = float(states[-1].state or 0)
-
-            # Monatsverbrauch berechnen
-            return max(last - first, 0.0)
-
-        now = datetime.now()
-        current_month = now.month
-        current_year = now.year
-
-        # --- REAL CURRENT MONTH ---
-        real_current = get_month_stats(current_year, current_month)
-
-        # --- DAILY AVERAGE ---
+        # Daily average
         if now.day > 1:
             daily_avg = real_current / (now.day - 1)
         else:
             daily_avg = 0.0
 
-        # --- FORECAST CURRENT MONTH ---
-        days_in_month = (datetime(current_year, current_month + (1 if current_month < 12 else -11), 1)
-                         - timedelta(days=1)).day
-        remaining_days = days_in_month - (now.day - 1)
+        days_in_month = calendar.monthrange(year, month)[1]
 
-        forecast_current = real_current + remaining_days * daily_avg
-
-        # --- CALCULATE ALL MONTHS ---
+        # Build dict of 12 months
         months = {}
-
         for m in range(1, 13):
-            if m < current_month:
-                months[m] = get_month_stats(current_year, m)
-            elif m == current_month:
-                months[m] = forecast_current
-            else:
-                fc_now = HEAT_LOAD_FACTORS[current_month]
-                fc_target = HEAT_LOAD_FACTORS[m]
-                months[m] = forecast_current * (fc_target / fc_now)
 
-        # --- YEAR FORECAST ---
+            if m < month:
+                # Past month → get real historical value
+                months[m] = await get_instance(self.hass).async_add_executor_job(
+                    get_month_stats, year, m
+                )
+
+            elif m == month:
+                # Current month → forecast
+                remaining_days = days_in_month - (now.day - 1)
+                months[m] = real_current + daily_avg * remaining_days
+
+            else:
+                # Future → based on heat load factors
+                fc_now = HEAT_LOAD_FACTORS[month]
+                fc_target = HEAT_LOAD_FACTORS[m]
+                months[m] = real_current * (fc_target / fc_now)
+
+        forecast_current = months[month]
         year_forecast = sum(months.values())
 
         return {
-            "months": months,
             "current_real": real_current,
             "daily_avg": daily_avg,
             "forecast_current": forecast_current,
             "year_forecast": year_forecast,
+            "months": {m: round(v, 2) for m, v in months.items()},
         }
+
+    def _get_month_bounds(self, dt: datetime):
+        start = dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if dt.month == 12:
+            end = dt.replace(year=dt.year + 1, month=1, day=1) - timedelta(seconds=1)
+        else:
+            end = dt.replace(month=dt.month + 1, day=1) - timedelta(seconds=1)
+        return start, end
