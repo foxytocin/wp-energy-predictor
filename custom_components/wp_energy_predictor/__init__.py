@@ -7,6 +7,7 @@ from .const import (
     CONF_SENSOR,
     CONF_WW_SENSOR,
     DOMAIN,
+    HEAT_LOAD_FACTORS,
     WARM_WATER_LOAD_FACTORS,
 )
 from .coordinator import WPEnergyPredictorCoordinator
@@ -30,6 +31,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass,
         sensor_id,
         price_per_kwh=price,
+        load_factors=HEAT_LOAD_FACTORS,
         coordinator_name=f"{DOMAIN}_heat",
     )
     ww_coordinator = (

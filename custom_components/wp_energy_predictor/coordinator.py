@@ -10,7 +10,7 @@ from homeassistant.components.recorder.statistics import statistics_during_perio
 from homeassistant.const import UnitOfEnergy
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, CONF_PRICE_PER_KWH, CONF_SENSOR, HEAT_LOAD_FACTORS
+from .const import DOMAIN
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,12 +34,13 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
         )
         self.source = source_sensor
         self.price_per_kwh = float(price_per_kwh or 0.0)
-        self._load_factors = load_factors or HEAT_LOAD_FACTORS
+        self._load_factors = load_factors
         # Cache for past months to avoid repeated DB queries
-        self._cached_months: dict[int, float] = {}
+        # A cached month value of None means "no statistics data for that month".
+        self._cached_months: dict[int, float | None] = {}
         self._cache_year: int | None = None
 
-    def _get_month_stats_sync(self, year: int, month: int) -> float:
+    def _get_month_stats_sync(self, year: int, month: int) -> float | None:
         """Fetch monthly statistics from recorder (runs in executor)."""
         tz = dt_util.DEFAULT_TIME_ZONE
         start_local = datetime(year, month, 1, tzinfo=tz)
@@ -70,11 +71,11 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
                 )
             except Exception as err:
                 _LOGGER.warning("Failed to fetch statistics: %s", err)
-                return 0.0
+                return None
 
         if stats and self.source in stats and stats[self.source]:
             return float(stats[self.source][0].get("change", 0) or 0)
-        return 0.0
+        return None
 
     async def _async_update_data(self):
         """Fetch monthly values + current month real + forecast."""
@@ -88,16 +89,17 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
             self._cache_year = year
 
         # Fetch current month's real consumption
-        real_current = await get_instance(self.hass).async_add_executor_job(
+        real_current_raw = await get_instance(self.hass).async_add_executor_job(
             self._get_month_stats_sync, year, month
         )
+        real_current = float(real_current_raw or 0.0)
 
         # Load and cache past months (only if not already cached)
         for m in range(1, month):
             if m not in self._cached_months:
-                self._cached_months[m] = await get_instance(self.hass).async_add_executor_job(
-                    self._get_month_stats_sync, year, m
-                )
+                self._cached_months[m] = await get_instance(
+                    self.hass
+                ).async_add_executor_job(self._get_month_stats_sync, year, m)
 
         # Daily average calculation with fallback for first day of month
         if now.day > 1:
@@ -114,28 +116,37 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
                 prev_month_value = await get_instance(self.hass).async_add_executor_job(
                     self._get_month_stats_sync, prev_year, prev_month
                 )
-            
+
             prev_days = calendar.monthrange(prev_year, prev_month)[1]
-            daily_avg = prev_month_value / prev_days if prev_days > 0 else 0.0
+            daily_avg = (
+                float(prev_month_value or 0.0) / prev_days if prev_days > 0 else 0.0
+            )
 
         days_in_month = calendar.monthrange(year, month)[1]
         remaining_days = days_in_month - (now.day - 1)
         forecast_current_value = real_current + daily_avg * remaining_days
 
-        # Build dict of 12 months
+        fc_now = float(self._load_factors.get(month, 0.0) or 0.0)
+        base_value = forecast_current_value / fc_now if fc_now else 0.0
+
+        # Build dict of 12 months.
+        # Past months use real recorder values where available; if statistics are missing,
+        # we estimate using the load profile (e.g. warm-water factors).
         months: dict[int, float] = {}
         for m in range(1, 13):
             if m < month:
                 # Past month → use cached value
-                months[m] = self._cached_months.get(m, 0.0)
+                cached_value = self._cached_months.get(m)
+                if cached_value is None:
+                    months[m] = base_value * float(self._load_factors.get(m, 0.0) or 0.0)
+                else:
+                    months[m] = float(cached_value)
             elif m == month:
                 # Current month → forecast
                 months[m] = forecast_current_value
             else:
-                # Future → based on heat load factors
-                fc_now = self._load_factors.get(month, 0.0)
-                fc_target = self._load_factors.get(m, 0.0)
-                months[m] = forecast_current_value * (fc_target / fc_now) if fc_now else 0.0
+                # Future → based on configured load factors (heating or warm water)
+                months[m] = base_value * float(self._load_factors.get(m, 0.0) or 0.0)
 
         forecast_current = months[month]
         year_forecast = sum(months.values())
