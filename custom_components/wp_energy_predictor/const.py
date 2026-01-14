@@ -20,4 +20,18 @@ HEAT_LOAD_FACTORS = {
 }
 
 # Warm water typically has much less seasonality than space heating. Keep it flat by default.
-WARM_WATER_LOAD_FACTORS = {m: 1.0 for m in range(1, 13)}
+#WARM_WATER_LOAD_FACTORS = {m: 1.0 for m in range(1, 13)}
+WARM_WATER_LOAD_FACTORS = {
+    1: 1.20,  # Januar (kältestes Wasser, hohe Verluste)
+    2: 1.15,
+    3: 1.05,
+    4: 0.95,
+    5: 0.85,
+    6: 0.75,
+    7: 0.70,  # Juli (Minimum)
+    8: 0.80,
+    9: 0.95,
+    10: 1.05,
+    11: 1.10,
+    12: 1.15,
+}
