@@ -1,5 +1,11 @@
 from homeassistant import config_entries
 import voluptuous as vol
+from homeassistant.helpers.selector import (
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
+
 from .const import (
     CONF_LOAD_FACTOR_TYPE_HEAT,
     CONF_LOAD_FACTOR_TYPE_WW,
@@ -49,11 +55,11 @@ def _sensor_select_with_none(sensors: list[str]) -> dict[str, str]:
 
 
 def _get_load_factor_options():
-    return {
-        LOAD_FACTOR_PRESET_HEAT_STANDARD: "Heat Pump Standard",
-        LOAD_FACTOR_PRESET_WW_STANDARD: "Warm Water Standard",
-        LOAD_FACTOR_PRESET_LINEAR: "Linear (1.0)",
-    }
+    return [
+        LOAD_FACTOR_PRESET_HEAT_STANDARD,
+        LOAD_FACTOR_PRESET_WW_STANDARD,
+        LOAD_FACTOR_PRESET_LINEAR,
+    ]
 
 
 class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -82,8 +88,20 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_SENSOR): vol.In(sensors),
             vol.Optional(CONF_WW_SENSOR, default=CONF_NONE): vol.In(_sensor_select_with_none(sensors)),
             vol.Optional(CONF_PRICE_PER_KWH, default=0.30): vol.Coerce(float),
-            vol.Optional(CONF_LOAD_FACTOR_TYPE_HEAT, default=LOAD_FACTOR_PRESET_HEAT_STANDARD): vol.In(_get_load_factor_options()),
-            vol.Optional(CONF_LOAD_FACTOR_TYPE_WW, default=LOAD_FACTOR_PRESET_WW_STANDARD): vol.In(_get_load_factor_options()),
+            vol.Optional(CONF_LOAD_FACTOR_TYPE_HEAT, default=LOAD_FACTOR_PRESET_HEAT_STANDARD): SelectSelector(
+                SelectSelectorConfig(
+                    options=_get_load_factor_options(),
+                    mode=SelectSelectorMode.LIST,
+                    translation_key="load_factor_preset",
+                )
+            ),
+            vol.Optional(CONF_LOAD_FACTOR_TYPE_WW, default=LOAD_FACTOR_PRESET_WW_STANDARD): SelectSelector(
+                SelectSelectorConfig(
+                    options=_get_load_factor_options(),
+                    mode=SelectSelectorMode.LIST,
+                    translation_key="load_factor_preset",
+                )
+            ),
         })
 
         return self.async_show_form(step_id="user", data_schema=schema)
@@ -126,14 +144,26 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
                     CONF_LOAD_FACTOR_TYPE_HEAT,
                     self.config_entry.data.get(CONF_LOAD_FACTOR_TYPE_HEAT, LOAD_FACTOR_PRESET_HEAT_STANDARD)
                 )
-            ): vol.In(_get_load_factor_options()),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=_get_load_factor_options(),
+                    mode=SelectSelectorMode.LIST,
+                    translation_key="load_factor_preset",
+                )
+            ),
             vol.Optional(
                 CONF_LOAD_FACTOR_TYPE_WW,
                 default=self.config_entry.options.get(
                     CONF_LOAD_FACTOR_TYPE_WW,
                     self.config_entry.data.get(CONF_LOAD_FACTOR_TYPE_WW, LOAD_FACTOR_PRESET_WW_STANDARD)
                 )
-            ): vol.In(_get_load_factor_options()),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=_get_load_factor_options(),
+                    mode=SelectSelectorMode.LIST,
+                    translation_key="load_factor_preset",
+                )
+            ),
         })
 
         return self.async_show_form(step_id="init", data_schema=schema)

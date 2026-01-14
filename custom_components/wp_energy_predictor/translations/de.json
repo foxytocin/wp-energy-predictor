@@ -7,7 +7,9 @@
                 "data": {
                     "sensor": "Energie-Sensor",
                     "warmwater_sensor": "Warmwasser-Energie-Sensor (optional)",
-                    "price_per_kwh": "Preis pro kWh"
+                    "price_per_kwh": "Preis pro kWh",
+                    "load_factor_type_heat": "Lastprofil (Heizung)",
+                    "load_factor_type_ww": "Lastprofil (Warmwasser)"
                 }
             }
         },
@@ -23,8 +25,19 @@
                 "data": {
                     "sensor": "Energie-Sensor",
                     "warmwater_sensor": "Warmwasser-Energie-Sensor (optional)",
-                    "price_per_kwh": "Preis pro kWh"
+                    "price_per_kwh": "Preis pro kWh",
+                    "load_factor_type_heat": "Lastprofil (Heizung)",
+                    "load_factor_type_ww": "Lastprofil (Warmwasser)"
                 }
+            }
+        }
+    },
+    "selector": {
+        "load_factor_preset": {
+            "options": {
+                "heat_pump_standard": "Wärmepumpen Standard",
+                "warm_water_standard": "Warmwasser Standard",
+                "linear": "Linear (1.0)"
             }
         }
     },
