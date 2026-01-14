@@ -1,6 +1,17 @@
 from homeassistant import config_entries
 import voluptuous as vol
-from .const import CONF_NONE, CONF_PRICE_PER_KWH, CONF_SENSOR, CONF_WW_SENSOR, DOMAIN
+from .const import (
+    CONF_LOAD_FACTOR_TYPE_HEAT,
+    CONF_LOAD_FACTOR_TYPE_WW,
+    CONF_NONE,
+    CONF_PRICE_PER_KWH,
+    CONF_SENSOR,
+    CONF_WW_SENSOR,
+    DOMAIN,
+    LOAD_FACTOR_PRESET_HEAT_STANDARD,
+    LOAD_FACTOR_PRESET_LINEAR,
+    LOAD_FACTOR_PRESET_WW_STANDARD,
+)
 
 
 def _get_energy_sensors(hass):
@@ -37,6 +48,14 @@ def _sensor_select_with_none(sensors: list[str]) -> dict[str, str]:
     return {CONF_NONE: "— nicht verwenden —", **{s: s for s in sensors}}
 
 
+def _get_load_factor_options():
+    return {
+        LOAD_FACTOR_PRESET_HEAT_STANDARD: "Heat Pump Standard",
+        LOAD_FACTOR_PRESET_WW_STANDARD: "Warm Water Standard",
+        LOAD_FACTOR_PRESET_LINEAR: "Linear (1.0)",
+    }
+
+
 class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     def async_get_options_flow(config_entry):
@@ -63,6 +82,8 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_SENSOR): vol.In(sensors),
             vol.Optional(CONF_WW_SENSOR, default=CONF_NONE): vol.In(_sensor_select_with_none(sensors)),
             vol.Optional(CONF_PRICE_PER_KWH, default=0.30): vol.Coerce(float),
+            vol.Optional(CONF_LOAD_FACTOR_TYPE_HEAT, default=LOAD_FACTOR_PRESET_HEAT_STANDARD): vol.In(_get_load_factor_options()),
+            vol.Optional(CONF_LOAD_FACTOR_TYPE_WW, default=LOAD_FACTOR_PRESET_WW_STANDARD): vol.In(_get_load_factor_options()),
         })
 
         return self.async_show_form(step_id="user", data_schema=schema)
@@ -99,6 +120,20 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
                     CONF_PRICE_PER_KWH, self.config_entry.data.get(CONF_PRICE_PER_KWH, 0.30)
                 ),
             ): vol.Coerce(float),
+            vol.Optional(
+                CONF_LOAD_FACTOR_TYPE_HEAT,
+                default=self.config_entry.options.get(
+                    CONF_LOAD_FACTOR_TYPE_HEAT,
+                    self.config_entry.data.get(CONF_LOAD_FACTOR_TYPE_HEAT, LOAD_FACTOR_PRESET_HEAT_STANDARD)
+                )
+            ): vol.In(_get_load_factor_options()),
+            vol.Optional(
+                CONF_LOAD_FACTOR_TYPE_WW,
+                default=self.config_entry.options.get(
+                    CONF_LOAD_FACTOR_TYPE_WW,
+                    self.config_entry.data.get(CONF_LOAD_FACTOR_TYPE_WW, LOAD_FACTOR_PRESET_WW_STANDARD)
+                )
+            ): vol.In(_get_load_factor_options()),
         })
 
         return self.async_show_form(step_id="init", data_schema=schema)

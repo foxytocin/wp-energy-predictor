@@ -3,11 +3,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import (
+    CONF_LOAD_FACTOR_TYPE_HEAT,
+    CONF_LOAD_FACTOR_TYPE_WW,
     CONF_PRICE_PER_KWH,
     CONF_SENSOR,
     CONF_WW_SENSOR,
     DOMAIN,
     HEAT_LOAD_FACTORS,
+    LINEAR_FACTORS,
+    LOAD_FACTOR_PRESET_HEAT_STANDARD,
+    LOAD_FACTOR_PRESET_LINEAR,
+    LOAD_FACTOR_PRESET_WW_STANDARD,
     WARM_WATER_LOAD_FACTORS,
 )
 from .coordinator import WPEnergyPredictorCoordinator
@@ -16,6 +22,14 @@ from .service import async_setup_services
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+def _get_load_factors(preset: str) -> dict[int, float]:
+    if preset == LOAD_FACTOR_PRESET_WW_STANDARD:
+        return WARM_WATER_LOAD_FACTORS
+    elif preset == LOAD_FACTOR_PRESET_LINEAR:
+        return LINEAR_FACTORS
+    return HEAT_LOAD_FACTORS  # Default to heat standard
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -27,11 +41,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         CONF_PRICE_PER_KWH, entry.data.get(CONF_PRICE_PER_KWH, 0.30)
     )
 
+    # Determine load factors
+    heat_preset = entry.options.get(
+        CONF_LOAD_FACTOR_TYPE_HEAT,
+        entry.data.get(CONF_LOAD_FACTOR_TYPE_HEAT, LOAD_FACTOR_PRESET_HEAT_STANDARD),
+    )
+    ww_preset = entry.options.get(
+        CONF_LOAD_FACTOR_TYPE_WW,
+        entry.data.get(CONF_LOAD_FACTOR_TYPE_WW, LOAD_FACTOR_PRESET_WW_STANDARD),
+    )
+
+    heat_factors = _get_load_factors(heat_preset)
+    ww_factors = _get_load_factors(ww_preset)
+
     heat_coordinator = WPEnergyPredictorCoordinator(
         hass,
         sensor_id,
         price_per_kwh=price,
-        load_factors=HEAT_LOAD_FACTORS,
+        load_factors=heat_factors,
         coordinator_name=f"{DOMAIN}_heat",
     )
     ww_coordinator = (
@@ -39,7 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             hass,
             ww_sensor_id,
             price_per_kwh=price,
-            load_factors=WARM_WATER_LOAD_FACTORS,
+            load_factors=ww_factors,
             coordinator_name=f"{DOMAIN}_warmwater",
         )
         if ww_sensor_id

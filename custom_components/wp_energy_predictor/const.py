@@ -35,3 +35,14 @@ WARM_WATER_LOAD_FACTORS = {
     11: 1.10,
     12: 1.15,
 }
+
+LINEAR_FACTORS = {m: 1.0 for m in range(1, 13)}
+
+# Configuration Constants
+CONF_LOAD_FACTOR_TYPE_HEAT = "load_factor_type_heat"
+CONF_LOAD_FACTOR_TYPE_WW = "load_factor_type_ww"
+
+# Presets
+LOAD_FACTOR_PRESET_HEAT_STANDARD = "heat_pump_standard"
+LOAD_FACTOR_PRESET_WW_STANDARD = "warm_water_standard"
+LOAD_FACTOR_PRESET_LINEAR = "linear"
