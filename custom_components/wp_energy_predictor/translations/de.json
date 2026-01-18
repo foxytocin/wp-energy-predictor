@@ -19,6 +19,47 @@
     },
     "options": {
         "step": {
+            "heat": {
+                "title": "WP Energy Predictor Optionen (Heizung)",
+                "description": "Konfiguriere Heizungs-Sensor, Preis, Lastprofil und Monatskorrekturen.",
+                "data": {
+                    "sensor": "Energie-Sensor",
+                    "price_per_kwh": "Preis pro kWh",
+                    "load_factor_type_heat": "Lastprofil (Heizung)",
+                    "heat_correction_1": "Heizung Korrektur Januar (+/- kWh)",
+                    "heat_correction_2": "Heizung Korrektur Februar (+/- kWh)",
+                    "heat_correction_3": "Heizung Korrektur März (+/- kWh)",
+                    "heat_correction_4": "Heizung Korrektur April (+/- kWh)",
+                    "heat_correction_5": "Heizung Korrektur Mai (+/- kWh)",
+                    "heat_correction_6": "Heizung Korrektur Juni (+/- kWh)",
+                    "heat_correction_7": "Heizung Korrektur Juli (+/- kWh)",
+                    "heat_correction_8": "Heizung Korrektur August (+/- kWh)",
+                    "heat_correction_9": "Heizung Korrektur September (+/- kWh)",
+                    "heat_correction_10": "Heizung Korrektur Oktober (+/- kWh)",
+                    "heat_correction_11": "Heizung Korrektur November (+/- kWh)",
+                    "heat_correction_12": "Heizung Korrektur Dezember (+/- kWh)"
+                }
+            },
+            "warmwater": {
+                "title": "WP Energy Predictor Optionen (Warmwasser)",
+                "description": "Konfiguriere Warmwasser-Sensor, Lastprofil und Monatskorrekturen.",
+                "data": {
+                    "warmwater_sensor": "Warmwasser-Energie-Sensor (optional)",
+                    "load_factor_type_ww": "Lastprofil (Warmwasser)",
+                    "ww_correction_1": "Warmwasser Korrektur Januar (+/- kWh)",
+                    "ww_correction_2": "Warmwasser Korrektur Februar (+/- kWh)",
+                    "ww_correction_3": "Warmwasser Korrektur März (+/- kWh)",
+                    "ww_correction_4": "Warmwasser Korrektur April (+/- kWh)",
+                    "ww_correction_5": "Warmwasser Korrektur Mai (+/- kWh)",
+                    "ww_correction_6": "Warmwasser Korrektur Juni (+/- kWh)",
+                    "ww_correction_7": "Warmwasser Korrektur Juli (+/- kWh)",
+                    "ww_correction_8": "Warmwasser Korrektur August (+/- kWh)",
+                    "ww_correction_9": "Warmwasser Korrektur September (+/- kWh)",
+                    "ww_correction_10": "Warmwasser Korrektur Oktober (+/- kWh)",
+                    "ww_correction_11": "Warmwasser Korrektur November (+/- kWh)",
+                    "ww_correction_12": "Warmwasser Korrektur Dezember (+/- kWh)"
+                }
+            },
             "init": {
                 "title": "WP Energy Predictor Optionen",
                 "description": "Aktualisiere deine Wärmepumpen-Energievorhersage-Einstellungen.",

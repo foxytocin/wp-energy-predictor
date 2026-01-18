@@ -121,20 +121,19 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
     """Options flow handler - config_entry is provided by parent class."""
+    def __init__(self, config_entry):
+        super().__init__(config_entry)
+        self._heat_data: dict = {}
 
     async def async_step_init(self, user_input=None):
+        return await self.async_step_heat(user_input)
+
+    async def async_step_heat(self, user_input=None):
         if user_input is not None:
-            if user_input.get(CONF_WW_SENSOR) == CONF_NONE:
-                user_input.pop(CONF_WW_SENSOR, None)
-            return self.async_create_entry(title="", data=user_input)
+            self._heat_data = user_input
+            return await self.async_step_warmwater()
 
         sensors = _get_energy_sensors(self.hass)
-
-        ww_default = self.config_entry.options.get(
-            CONF_WW_SENSOR, self.config_entry.data.get(CONF_WW_SENSOR, CONF_NONE)
-        )
-        if ww_default not in sensors:
-            ww_default = CONF_NONE
 
         schema_dict = {
             vol.Required(
@@ -143,7 +142,6 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
                     CONF_SENSOR, self.config_entry.data[CONF_SENSOR]
                 )
             ): vol.In(sensors),
-            vol.Optional(CONF_WW_SENSOR, default=ww_default): vol.In(_sensor_select_with_none(sensors)),
             vol.Optional(
                 CONF_PRICE_PER_KWH,
                 default=self.config_entry.options.get(
@@ -163,6 +161,31 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
                     translation_key="load_factor_preset",
                 )
             ),
+        }
+
+        _add_month_corrections(schema_dict, self.config_entry.options, HEAT_CORRECTION_KEYS)
+
+        schema = vol.Schema(schema_dict)
+
+        return self.async_show_form(step_id="heat", data_schema=schema)
+
+    async def async_step_warmwater(self, user_input=None):
+        if user_input is not None:
+            if user_input.get(CONF_WW_SENSOR) == CONF_NONE:
+                user_input.pop(CONF_WW_SENSOR, None)
+            data = {**self._heat_data, **user_input}
+            return self.async_create_entry(title="", data=data)
+
+        sensors = _get_energy_sensors(self.hass)
+
+        ww_default = self.config_entry.options.get(
+            CONF_WW_SENSOR, self.config_entry.data.get(CONF_WW_SENSOR, CONF_NONE)
+        )
+        if ww_default not in sensors:
+            ww_default = CONF_NONE
+
+        schema_dict = {
+            vol.Optional(CONF_WW_SENSOR, default=ww_default): vol.In(_sensor_select_with_none(sensors)),
             vol.Optional(
                 CONF_LOAD_FACTOR_TYPE_WW,
                 default=self.config_entry.options.get(
@@ -178,9 +201,8 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
             ),
         }
 
-        _add_month_corrections(schema_dict, self.config_entry.options, HEAT_CORRECTION_KEYS)
         _add_month_corrections(schema_dict, self.config_entry.options, WW_CORRECTION_KEYS)
 
         schema = vol.Schema(schema_dict)
 
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(step_id="warmwater", data_schema=schema)
