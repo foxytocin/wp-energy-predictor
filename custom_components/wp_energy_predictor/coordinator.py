@@ -128,32 +128,51 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
         remaining_days = days_in_month - (now.day - 1)
         forecast_current_value = real_current + daily_avg * remaining_days
 
+        # Apply current month correction before deriving base
+        correction_current = float(self._month_corrections.get(month, 0.0) or 0.0)
+        forecast_current_value += correction_current
+
         fc_now = float(self._load_factors.get(month, 0.0) or 0.0)
-        base_value = forecast_current_value / fc_now if fc_now else 0.0
+        normalized_history: list[float] = []
+        if fc_now:
+            normalized_history.append(forecast_current_value / fc_now)
+
+        # Use past months with real data (plus corrections) to refine base value
+        for m in range(1, month):
+            cached_value = self._cached_months.get(m)
+            if cached_value is None:
+                continue
+            lf = float(self._load_factors.get(m, 0.0) or 0.0)
+            if not lf:
+                continue
+            correction = float(self._month_corrections.get(m, 0.0) or 0.0)
+            normalized_history.append((float(cached_value) + correction) / lf)
+
+        if normalized_history:
+            base_value = sum(normalized_history) / len(normalized_history)
+        else:
+            base_value = forecast_current_value / fc_now if fc_now else 0.0
 
         # Build dict of 12 months.
         # Past months use real recorder values where available; if statistics are missing,
         # we estimate using the load profile (e.g. warm-water factors).
         months: dict[int, float] = {}
         for m in range(1, 13):
+            correction = float(self._month_corrections.get(m, 0.0) or 0.0)
+            lf = float(self._load_factors.get(m, 0.0) or 0.0)
             if m < month:
                 # Past month → use cached value
                 cached_value = self._cached_months.get(m)
                 if cached_value is None:
-                    months[m] = base_value * float(self._load_factors.get(m, 0.0) or 0.0)
+                    months[m] = base_value * lf + correction
                 else:
-                    months[m] = float(cached_value)
+                    months[m] = float(cached_value) + correction
             elif m == month:
                 # Current month → forecast
                 months[m] = forecast_current_value
             else:
                 # Future → based on configured load factors (heating or warm water)
-                months[m] = base_value * float(self._load_factors.get(m, 0.0) or 0.0)
-
-        # Apply manual month corrections (additive, per month)
-        for m, correction in self._month_corrections.items():
-            if m in months:
-                months[m] = months[m] + float(correction)
+                months[m] = base_value * lf + correction
 
         forecast_current = months[month]
         year_forecast = sum(months.values())
