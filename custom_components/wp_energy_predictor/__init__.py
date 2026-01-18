@@ -3,6 +3,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import (
+    HEAT_CORRECTION_KEYS,
     CONF_LOAD_FACTOR_TYPE_HEAT,
     CONF_LOAD_FACTOR_TYPE_WW,
     CONF_PRICE_PER_KWH,
@@ -15,6 +16,7 @@ from .const import (
     LOAD_FACTOR_PRESET_LINEAR,
     LOAD_FACTOR_PRESET_WW_STANDARD,
     WARM_WATER_LOAD_FACTORS,
+    WW_CORRECTION_KEYS,
 )
 from .coordinator import WPEnergyPredictorCoordinator
 from .service import async_setup_services
@@ -30,6 +32,18 @@ def _get_load_factors(preset: str) -> dict[int, float]:
     elif preset == LOAD_FACTOR_PRESET_LINEAR:
         return LINEAR_FACTORS
     return HEAT_LOAD_FACTORS  # Default to heat standard
+
+
+def _extract_month_corrections(options: dict, key_map: dict[int, str]) -> dict[int, float]:
+    corrections: dict[int, float] = {}
+    for month, option_key in key_map.items():
+        if option_key not in options:
+            continue
+        try:
+            corrections[month] = float(options[option_key])
+        except (TypeError, ValueError):
+            continue
+    return corrections
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -53,12 +67,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     heat_factors = _get_load_factors(heat_preset)
     ww_factors = _get_load_factors(ww_preset)
+    heat_corrections = _extract_month_corrections(entry.options, HEAT_CORRECTION_KEYS)
+    ww_corrections = _extract_month_corrections(entry.options, WW_CORRECTION_KEYS)
 
     heat_coordinator = WPEnergyPredictorCoordinator(
         hass,
         sensor_id,
         price_per_kwh=price,
         load_factors=heat_factors,
+        month_corrections=heat_corrections,
         coordinator_name=f"{DOMAIN}_heat",
     )
     ww_coordinator = (
@@ -67,6 +84,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             ww_sensor_id,
             price_per_kwh=price,
             load_factors=ww_factors,
+            month_corrections=ww_corrections,
             coordinator_name=f"{DOMAIN}_warmwater",
         )
         if ww_sensor_id

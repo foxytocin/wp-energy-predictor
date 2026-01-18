@@ -7,6 +7,8 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    HEAT_CORRECTION_KEYS,
+    WW_CORRECTION_KEYS,
     CONF_LOAD_FACTOR_TYPE_HEAT,
     CONF_LOAD_FACTOR_TYPE_WW,
     CONF_NONE,
@@ -60,6 +62,16 @@ def _get_load_factor_options():
         LOAD_FACTOR_PRESET_WW_STANDARD,
         LOAD_FACTOR_PRESET_LINEAR,
     ]
+
+
+def _add_month_corrections(schema_dict, existing: dict, key_map: dict[int, str]):
+    """Add optional month correction fields to a voluptuous schema dict."""
+    for _, key in key_map.items():
+        existing_value = existing.get(key)
+        if existing_value is not None:
+            schema_dict[vol.Optional(key, default=existing_value)] = vol.Coerce(float)
+        else:
+            schema_dict[vol.Optional(key)] = vol.Coerce(float)
 
 
 class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -124,7 +136,7 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
         if ww_default not in sensors:
             ww_default = CONF_NONE
 
-        schema = vol.Schema({
+        schema_dict = {
             vol.Required(
                 CONF_SENSOR,
                 default=self.config_entry.options.get(
@@ -164,6 +176,11 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
                     translation_key="load_factor_preset",
                 )
             ),
-        })
+        }
+
+        _add_month_corrections(schema_dict, self.config_entry.options, HEAT_CORRECTION_KEYS)
+        _add_month_corrections(schema_dict, self.config_entry.options, WW_CORRECTION_KEYS)
+
+        schema = vol.Schema(schema_dict)
 
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -27,7 +27,31 @@
                     "warmwater_sensor": "Warm water energy sensor (optional)",
                     "price_per_kwh": "Price per kWh",
                     "load_factor_type_heat": "Heat Loads (Heating)",
-                    "load_factor_type_ww": "Heat Loads (Warm Water)"
+                    "load_factor_type_ww": "Heat Loads (Warm Water)",
+                    "heat_correction_1": "Heating correction January (+/- kWh)",
+                    "heat_correction_2": "Heating correction February (+/- kWh)",
+                    "heat_correction_3": "Heating correction March (+/- kWh)",
+                    "heat_correction_4": "Heating correction April (+/- kWh)",
+                    "heat_correction_5": "Heating correction May (+/- kWh)",
+                    "heat_correction_6": "Heating correction June (+/- kWh)",
+                    "heat_correction_7": "Heating correction July (+/- kWh)",
+                    "heat_correction_8": "Heating correction August (+/- kWh)",
+                    "heat_correction_9": "Heating correction September (+/- kWh)",
+                    "heat_correction_10": "Heating correction October (+/- kWh)",
+                    "heat_correction_11": "Heating correction November (+/- kWh)",
+                    "heat_correction_12": "Heating correction December (+/- kWh)",
+                    "ww_correction_1": "Warm water correction January (+/- kWh)",
+                    "ww_correction_2": "Warm water correction February (+/- kWh)",
+                    "ww_correction_3": "Warm water correction March (+/- kWh)",
+                    "ww_correction_4": "Warm water correction April (+/- kWh)",
+                    "ww_correction_5": "Warm water correction May (+/- kWh)",
+                    "ww_correction_6": "Warm water correction June (+/- kWh)",
+                    "ww_correction_7": "Warm water correction July (+/- kWh)",
+                    "ww_correction_8": "Warm water correction August (+/- kWh)",
+                    "ww_correction_9": "Warm water correction September (+/- kWh)",
+                    "ww_correction_10": "Warm water correction October (+/- kWh)",
+                    "ww_correction_11": "Warm water correction November (+/- kWh)",
+                    "ww_correction_12": "Warm water correction December (+/- kWh)"
                 }
             }
         }

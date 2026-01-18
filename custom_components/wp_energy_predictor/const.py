@@ -4,6 +4,8 @@ CONF_WW_SENSOR = "warmwater_sensor"
 CONF_PRICE_PER_KWH = "price_per_kwh"
 CONF_NONE = "__none__"
 
+MONTHS = tuple(range(1, 13))
+
 HEAT_LOAD_FACTORS = {
     1: 1.30,
     2: 1.15,
@@ -37,6 +39,9 @@ WARM_WATER_LOAD_FACTORS = {
 }
 
 LINEAR_FACTORS = {m: 1.0 for m in range(1, 13)}
+
+HEAT_CORRECTION_KEYS = {m: f"heat_correction_{m}" for m in MONTHS}
+WW_CORRECTION_KEYS = {m: f"ww_correction_{m}" for m in MONTHS}
 
 # Configuration Constants
 CONF_LOAD_FACTOR_TYPE_HEAT = "load_factor_type_heat"

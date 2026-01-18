@@ -24,6 +24,7 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
         *,
         price_per_kwh: float = 0.0,
         load_factors: dict[int, float] | None = None,
+        month_corrections: dict[int, float] | None = None,
         coordinator_name: str | None = None,
     ):
         super().__init__(
@@ -34,7 +35,8 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
         )
         self.source = source_sensor
         self.price_per_kwh = float(price_per_kwh or 0.0)
-        self._load_factors = load_factors
+        self._load_factors = load_factors or {}
+        self._month_corrections = month_corrections or {}
         # Cache for past months to avoid repeated DB queries
         # A cached month value of None means "no statistics data for that month".
         self._cached_months: dict[int, float | None] = {}
@@ -147,6 +149,11 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
             else:
                 # Future → based on configured load factors (heating or warm water)
                 months[m] = base_value * float(self._load_factors.get(m, 0.0) or 0.0)
+
+        # Apply manual month corrections (additive, per month)
+        for m, correction in self._month_corrections.items():
+            if m in months:
+                months[m] = months[m] + float(correction)
 
         forecast_current = months[month]
         year_forecast = sum(months.values())
