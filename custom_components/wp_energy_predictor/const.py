@@ -7,35 +7,35 @@ CONF_NONE = "__none__"
 MONTHS = tuple(range(1, 13))
 
 HEAT_LOAD_FACTORS = {
-    1: 1.30,
-    2: 1.15,
-    3: 1.05,
-    4: 0.85,
-    5: 0.60,
-    6: 0.40,
-    7: 0.35,
-    8: 0.40,
-    9: 0.55,
-    10: 0.75,
-    11: 1.00,
-    12: 1.20,
+    1: 1.00,
+    2: 0.88,
+    3: 0.76,
+    4: 0.47,
+    5: 0.24,
+    6: 0.08,
+    7: 0.08,
+    8: 0.08,
+    9: 0.18,
+    10: 0.47,
+    11: 0.71,
+    12: 0.94
 }
 
 # Warm water typically has much less seasonality than space heating. Keep it flat by default.
 #WARM_WATER_LOAD_FACTORS = {m: 1.0 for m in range(1, 13)}
 WARM_WATER_LOAD_FACTORS = {
-    1: 1.20,  # Januar (kältestes Wasser, hohe Verluste)
-    2: 1.15,
+    1: 1.15,  # Januar (kältestes Wasser, hohe Verluste)
+    2: 1.12,
     3: 1.05,
-    4: 0.95,
-    5: 0.85,
-    6: 0.75,
-    7: 0.70,  # Juli (Minimum)
-    8: 0.80,
-    9: 0.95,
-    10: 1.05,
-    11: 1.10,
-    12: 1.15,
+    4: 0.98,
+    5: 0.92,
+    6: 0.87,
+    7: 0.85,  # Juli (Minimum)
+    8: 0.86,
+    9: 0.92,
+    10: 1.00,
+    11: 1.07,
+    12: 1.14,
 }
 
 LINEAR_FACTORS = {m: 1.0 for m in range(1, 13)}
