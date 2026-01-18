@@ -95,6 +95,8 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
             self._get_month_stats_sync, year, month
         )
         real_current = float(real_current_raw or 0.0)
+        correction_current = float(self._month_corrections.get(month, 0.0) or 0.0)
+        real_current_corrected = real_current + correction_current
 
         # Load and cache past months (only if not already cached)
         for m in range(1, month):
@@ -105,7 +107,7 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
 
         # Daily average calculation with fallback for first day of month
         if now.day > 1:
-            daily_avg = real_current / (now.day - 1)
+            daily_avg = real_current_corrected / (now.day - 1)
         else:
             # Fallback: use previous month's average
             prev_month = 12 if month == 1 else month - 1
@@ -121,16 +123,18 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
 
             prev_days = calendar.monthrange(prev_year, prev_month)[1]
             daily_avg = (
-                float(prev_month_value or 0.0) / prev_days if prev_days > 0 else 0.0
+                (
+                    float(prev_month_value or 0.0)
+                    + float(self._month_corrections.get(prev_month, 0.0) or 0.0)
+                )
+                / prev_days
+                if prev_days > 0
+                else 0.0
             )
 
         days_in_month = calendar.monthrange(year, month)[1]
         remaining_days = days_in_month - (now.day - 1)
-        forecast_current_value = real_current + daily_avg * remaining_days
-
-        # Apply current month correction before deriving base
-        correction_current = float(self._month_corrections.get(month, 0.0) or 0.0)
-        forecast_current_value += correction_current
+        forecast_current_value = real_current_corrected + daily_avg * remaining_days
 
         fc_now = float(self._load_factors.get(month, 0.0) or 0.0)
         normalized_history: list[float] = []
@@ -181,7 +185,7 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
         year_cost_forecast = year_forecast * self.price_per_kwh
 
         return {
-            "current_real": real_current,
+            "current_real": real_current_corrected,
             "daily_avg": daily_avg,
             "forecast_current": forecast_current,
             "year_forecast": year_forecast,
