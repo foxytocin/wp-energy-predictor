@@ -77,7 +77,7 @@ def _add_month_corrections(schema_dict, existing: dict, key_map: dict[int, str])
 class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     def async_get_options_flow(config_entry):
-        return WPEnergyPredictorOptionsFlow()
+        return WPEnergyPredictorOptionsFlow(config_entry)
 
     async def async_step_user(self, user_input=None):
         if user_input is not None:
@@ -122,7 +122,8 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
     """Options flow handler - config_entry is provided by parent class."""
     def __init__(self, config_entry):
-        super().__init__(config_entry)
+        self.config_entry = config_entry
+        self.hass = config_entry.hass
         self._heat_data: dict = {}
 
     async def async_step_init(self, user_input=None):
