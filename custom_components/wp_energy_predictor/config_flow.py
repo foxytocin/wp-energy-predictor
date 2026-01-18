@@ -122,8 +122,7 @@ class WPEnergyPredictorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
     """Options flow handler - config_entry is provided by parent class."""
     def __init__(self, config_entry):
-        self.config_entry = config_entry
-        self.hass = config_entry.hass
+        super().__init__(config_entry)
         self._heat_data: dict = {}
 
     async def async_step_init(self, user_input=None):
