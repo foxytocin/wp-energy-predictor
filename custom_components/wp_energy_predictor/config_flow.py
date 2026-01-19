@@ -123,7 +123,8 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
     """Options flow handler - config_entry is provided by parent class."""
     def __init__(self, config_entry):
         super().__init__()
-        self.config_entry = config_entry
+        self._config_entry = config_entry
+        self._config_entry_id = config_entry.entry_id
         self._heat_data: dict = {}
 
     async def async_step_init(self, user_input=None):
@@ -139,21 +140,21 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
         schema_dict = {
             vol.Required(
                 CONF_SENSOR,
-                default=self.config_entry.options.get(
-                    CONF_SENSOR, self.config_entry.data[CONF_SENSOR]
+                default=self._config_entry.options.get(
+                    CONF_SENSOR, self._config_entry.data[CONF_SENSOR]
                 )
             ): vol.In(sensors),
             vol.Optional(
                 CONF_PRICE_PER_KWH,
-                default=self.config_entry.options.get(
-                    CONF_PRICE_PER_KWH, self.config_entry.data.get(CONF_PRICE_PER_KWH, 0.30)
+                default=self._config_entry.options.get(
+                    CONF_PRICE_PER_KWH, self._config_entry.data.get(CONF_PRICE_PER_KWH, 0.30)
                 ),
             ): vol.Coerce(float),
             vol.Optional(
                 CONF_LOAD_FACTOR_TYPE_HEAT,
-                default=self.config_entry.options.get(
+                default=self._config_entry.options.get(
                     CONF_LOAD_FACTOR_TYPE_HEAT,
-                    self.config_entry.data.get(CONF_LOAD_FACTOR_TYPE_HEAT, LOAD_FACTOR_PRESET_HEAT_STANDARD)
+                    self._config_entry.data.get(CONF_LOAD_FACTOR_TYPE_HEAT, LOAD_FACTOR_PRESET_HEAT_STANDARD)
                 )
             ): SelectSelector(
                 SelectSelectorConfig(
@@ -164,7 +165,7 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
             ),
         }
 
-        _add_month_corrections(schema_dict, self.config_entry.options, HEAT_CORRECTION_KEYS)
+        _add_month_corrections(schema_dict, self._config_entry.options, HEAT_CORRECTION_KEYS)
 
         schema = vol.Schema(schema_dict)
 
@@ -179,8 +180,8 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
 
         sensors = _get_energy_sensors(self.hass)
 
-        ww_default = self.config_entry.options.get(
-            CONF_WW_SENSOR, self.config_entry.data.get(CONF_WW_SENSOR, CONF_NONE)
+        ww_default = self._config_entry.options.get(
+            CONF_WW_SENSOR, self._config_entry.data.get(CONF_WW_SENSOR, CONF_NONE)
         )
         if ww_default not in sensors:
             ww_default = CONF_NONE
@@ -189,9 +190,9 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_WW_SENSOR, default=ww_default): vol.In(_sensor_select_with_none(sensors)),
             vol.Optional(
                 CONF_LOAD_FACTOR_TYPE_WW,
-                default=self.config_entry.options.get(
+                default=self._config_entry.options.get(
                     CONF_LOAD_FACTOR_TYPE_WW,
-                    self.config_entry.data.get(CONF_LOAD_FACTOR_TYPE_WW, LOAD_FACTOR_PRESET_WW_STANDARD)
+                    self._config_entry.data.get(CONF_LOAD_FACTOR_TYPE_WW, LOAD_FACTOR_PRESET_WW_STANDARD)
                 )
             ): SelectSelector(
                 SelectSelectorConfig(
@@ -202,7 +203,7 @@ class WPEnergyPredictorOptionsFlow(config_entries.OptionsFlow):
             ),
         }
 
-        _add_month_corrections(schema_dict, self.config_entry.options, WW_CORRECTION_KEYS)
+        _add_month_corrections(schema_dict, self._config_entry.options, WW_CORRECTION_KEYS)
 
         schema = vol.Schema(schema_dict)
 
