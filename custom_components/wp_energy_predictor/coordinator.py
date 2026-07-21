@@ -98,9 +98,19 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
         correction_current = float(self._month_corrections.get(month, 0.0) or 0.0)
         real_current_corrected = real_current + correction_current
 
-        # Load and cache past months (only if not already cached)
+        # Load past months. A month is (re)fetched when we have no value yet,
+        # when the cached value is still empty (the myVAILLANT cloud backfills
+        # retroactively, so an empty month can fill in later), or when it is the
+        # just-finished previous month within a grace window at the start of the
+        # current month (the cloud finalises a month a few days late).
+        grace_days = 5
+        refetch_prev = (month - 1) if now.day <= grace_days else 0
         for m in range(1, month):
-            if m not in self._cached_months:
+            if (
+                m not in self._cached_months
+                or self._cached_months.get(m) is None
+                or m == refetch_prev
+            ):
                 self._cached_months[m] = await get_instance(
                     self.hass
                 ).async_add_executor_job(self._get_month_stats_sync, year, m)
