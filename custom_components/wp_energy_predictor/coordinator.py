@@ -137,46 +137,67 @@ class WPEnergyPredictorCoordinator(DataUpdateCoordinator):
         forecast_current_value = real_current_corrected + daily_avg * remaining_days
 
         fc_now = float(self._load_factors.get(month, 0.0) or 0.0)
-        normalized_history: list[float] = []
-        if fc_now:
-            normalized_history.append(forecast_current_value / fc_now)
 
-        # Use past months with real data (plus corrections) to refine base value
+        # Derive a season-normalized base consumption from every month we have a
+        # real value for. A "real value" is recorder statistics AND/OR a manual
+        # correction — corrections must count even when the recorder has no data
+        # for that month (e.g. a cloud integration that never wrote history).
+        # We use a load-factor-weighted mean (sum(values) / sum(load factors))
+        # instead of a plain mean of value/factor ratios: high-consumption winter
+        # months then drive the base, while tiny summer months (whose small values
+        # divided by a small factor are noisy) cannot distort it.
+        weighted_value = 0.0
+        weighted_factor = 0.0
+
+        # Current (partial) month, projected to a full month.
+        if fc_now:
+            weighted_value += forecast_current_value
+            weighted_factor += fc_now
+
+        # Past months: real recorder data plus any manual correction.
         for m in range(1, month):
             cached_value = self._cached_months.get(m)
-            if cached_value is None:
+            correction = float(self._month_corrections.get(m, 0.0) or 0.0)
+            if cached_value is None and not correction:
                 continue
             lf = float(self._load_factors.get(m, 0.0) or 0.0)
             if not lf:
                 continue
-            correction = float(self._month_corrections.get(m, 0.0) or 0.0)
-            normalized_history.append((float(cached_value) + correction) / lf)
+            weighted_value += float(cached_value or 0.0) + correction
+            weighted_factor += lf
 
-        if normalized_history:
-            base_value = sum(normalized_history) / len(normalized_history)
+        if weighted_factor:
+            base_value = weighted_value / weighted_factor
         else:
             base_value = forecast_current_value / fc_now if fc_now else 0.0
 
         # Build dict of 12 months.
-        # Past months use real recorder values where available; if statistics are missing,
-        # we estimate using the load profile (e.g. warm-water factors).
+        # Past months use real recorder values where available; if statistics are
+        # missing we fall back to a manual correction, and only then to a
+        # load-profile estimate. A correction is treated as the month's absolute
+        # value, so it is never added on top of the estimate (which would
+        # double-count).
         months: dict[int, float] = {}
         for m in range(1, 13):
             correction = float(self._month_corrections.get(m, 0.0) or 0.0)
             lf = float(self._load_factors.get(m, 0.0) or 0.0)
             if m < month:
-                # Past month → use cached value
+                # Past month → real recorder data (+ correction), else the bare
+                # correction, else a load-profile estimate.
                 cached_value = self._cached_months.get(m)
-                if cached_value is None:
-                    months[m] = base_value * lf + correction
-                else:
+                if cached_value is not None:
                     months[m] = float(cached_value) + correction
+                elif correction:
+                    months[m] = correction
+                else:
+                    months[m] = base_value * lf
             elif m == month:
                 # Current month → forecast
                 months[m] = forecast_current_value
             else:
-                # Future → based on configured load factors (heating or warm water)
-                months[m] = base_value * lf + correction
+                # Future → a correction (known/expected value) overrides;
+                # otherwise project the season-normalized base onto this month.
+                months[m] = correction if correction else base_value * lf
 
         forecast_current = months[month]
         year_forecast = sum(months.values())
