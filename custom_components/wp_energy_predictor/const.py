@@ -6,19 +6,29 @@ CONF_NONE = "__none__"
 
 MONTHS = tuple(range(1, 13))
 
+# Derived from measured data instead of a generic heat-pump curve.
+# Model: kWh = -65.2 + 11.54 * (HDD / COP), R2 = 0.974
+#   HDD = heating degree days, base 20 C / heating limit 15 C, from daily
+#         outdoor temperatures (Jan-Jul 2026, Aug-Dec 2025)
+#   COP = 3.29 + 0.073 * T_outdoor, fitted on the measured monthly COP
+#         (3.16 at 1.5 C ... 4.22 at 14.9 C)
+# Degree days alone are not enough for a heat pump: they model heat demand,
+# while the electricity drawn is heat/COP -- and the COP itself rises with
+# outdoor temperature. Both effects compound, which is why the previous
+# generic curve was too flat in the shoulder months and too high in December.
 HEAT_LOAD_FACTORS = {
     1: 1.00,
-    2: 0.88,
-    3: 0.76,
-    4: 0.47,
-    5: 0.24,
-    6: 0.08,
-    7: 0.08,
-    8: 0.08,
-    9: 0.18,
-    10: 0.47,
-    11: 0.71,
-    12: 0.94
+    2: 0.65,
+    3: 0.60,
+    4: 0.36,
+    5: 0.14,
+    6: 0.01,
+    7: 0.01,
+    8: 0.01,
+    9: 0.09,
+    10: 0.38,
+    11: 0.58,
+    12: 0.69
 }
 
 # Warm water typically has much less seasonality than space heating. Keep it flat by default.
