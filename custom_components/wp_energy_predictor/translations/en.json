@@ -14,7 +14,8 @@
             }
         },
         "error": {
-            "no_energy_sensors_found": "No energy sensors found. Please ensure you have at least one sensor with device_class 'energy', state_class 'total' or 'total_increasing', and unit 'kWh' or 'Wh'."
+            "no_energy_sensors_found": "No energy sensors found. Please ensure you have at least one sensor with device_class 'energy', state_class 'total' or 'total_increasing', and unit 'kWh' or 'Wh'.",
+            "invalid_number": "Please enter a valid number, for example 1234 or 1234.5. Leave a field empty to remove its correction."
         }
     },
     "options": {
@@ -25,19 +26,27 @@
                 "data": {
                     "sensor": "Energy Sensor",
                     "price_per_kwh": "Price per kWh",
-                    "load_factor_type_heat": "Heat Loads (Heating)",
-                    "heat_correction_1": "Heating correction January (+/- kWh)",
-                    "heat_correction_2": "Heating correction February (+/- kWh)",
-                    "heat_correction_3": "Heating correction March (+/- kWh)",
-                    "heat_correction_4": "Heating correction April (+/- kWh)",
-                    "heat_correction_5": "Heating correction May (+/- kWh)",
-                    "heat_correction_6": "Heating correction June (+/- kWh)",
-                    "heat_correction_7": "Heating correction July (+/- kWh)",
-                    "heat_correction_8": "Heating correction August (+/- kWh)",
-                    "heat_correction_9": "Heating correction September (+/- kWh)",
-                    "heat_correction_10": "Heating correction October (+/- kWh)",
-                    "heat_correction_11": "Heating correction November (+/- kWh)",
-                    "heat_correction_12": "Heating correction December (+/- kWh)"
+                    "load_factor_type_heat": "Heat Loads (Heating)"
+                },
+                "sections": {
+                    "month_corrections": {
+                        "name": "Monthly corrections",
+                        "description": "Override the value for individual months. Leave a field empty to let the load profile calculate it. Values in kWh.",
+                        "data": {
+                            "heat_correction_1": "January",
+                            "heat_correction_2": "February",
+                            "heat_correction_3": "March",
+                            "heat_correction_4": "April",
+                            "heat_correction_5": "May",
+                            "heat_correction_6": "June",
+                            "heat_correction_7": "July",
+                            "heat_correction_8": "August",
+                            "heat_correction_9": "September",
+                            "heat_correction_10": "October",
+                            "heat_correction_11": "November",
+                            "heat_correction_12": "December"
+                        }
+                    }
                 }
             },
             "warmwater": {
@@ -45,19 +54,27 @@
                 "description": "Configure warm water sensor, load profile, and monthly corrections.",
                 "data": {
                     "warmwater_sensor": "Warm water energy sensor (optional)",
-                    "load_factor_type_ww": "Heat Loads (Warm Water)",
-                    "ww_correction_1": "Warm water correction January (+/- kWh)",
-                    "ww_correction_2": "Warm water correction February (+/- kWh)",
-                    "ww_correction_3": "Warm water correction March (+/- kWh)",
-                    "ww_correction_4": "Warm water correction April (+/- kWh)",
-                    "ww_correction_5": "Warm water correction May (+/- kWh)",
-                    "ww_correction_6": "Warm water correction June (+/- kWh)",
-                    "ww_correction_7": "Warm water correction July (+/- kWh)",
-                    "ww_correction_8": "Warm water correction August (+/- kWh)",
-                    "ww_correction_9": "Warm water correction September (+/- kWh)",
-                    "ww_correction_10": "Warm water correction October (+/- kWh)",
-                    "ww_correction_11": "Warm water correction November (+/- kWh)",
-                    "ww_correction_12": "Warm water correction December (+/- kWh)"
+                    "load_factor_type_ww": "Heat Loads (Warm Water)"
+                },
+                "sections": {
+                    "month_corrections": {
+                        "name": "Monthly corrections",
+                        "description": "Override the value for individual months. Leave a field empty to let the load profile calculate it. Values in kWh.",
+                        "data": {
+                            "ww_correction_1": "January",
+                            "ww_correction_2": "February",
+                            "ww_correction_3": "March",
+                            "ww_correction_4": "April",
+                            "ww_correction_5": "May",
+                            "ww_correction_6": "June",
+                            "ww_correction_7": "July",
+                            "ww_correction_8": "August",
+                            "ww_correction_9": "September",
+                            "ww_correction_10": "October",
+                            "ww_correction_11": "November",
+                            "ww_correction_12": "December"
+                        }
+                    }
                 }
             },
             "init": {
@@ -95,6 +112,9 @@
                     "ww_correction_12": "Warm water correction December (+/- kWh)"
                 }
             }
+        },
+        "error": {
+            "invalid_number": "Please enter a valid number, for example 1234 or 1234.5. Leave a field empty to remove its correction."
         }
     },
     "selector": {
